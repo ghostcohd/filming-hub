@@ -172,6 +172,8 @@
   .script .foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
 
   /* ---------- Calendar ---------- */
+  .weektools { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+  .weeknote.removed { border-color: rgba(162,59,30,.25); background: #FBEFEA; }
   .weeknote { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .calhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
@@ -522,7 +524,9 @@ function renderBar() {
   const bar = $('#bar');
   bar.hidden = false;
   const opts = weekOptions().map(([w, label]) => {
-    const tagged = w === S.boot.currentWeek ? ' · this week' : (w === addDays(S.boot.currentWeek, 7) ? ' · next week' : '');
+    const info = (S.boot.weeks || []).find((x) => x.week === w);
+    const tagged = (w === S.boot.currentWeek ? ' · this week' : (w === addDays(S.boot.currentWeek, 7) ? ' · next week' : ''))
+      + (info && info.hidden ? ' · removed' : '');
     return `<option value="${w}" ${w === S.week ? 'selected' : ''}>${esc(label + tagged)}</option>`;
   }).join('');
   let meta = '';
@@ -588,6 +592,16 @@ function viewScripts() {
     return `<div class="panel empty"><h2>No scripts for ${esc(d.label)} yet</h2><p>They’ll appear here as soon as the Script Maker exports this week. You can still book filming blocks in the calendar.</p></div>`;
   }
   if (src.problem) html += `<div class="notice">${esc(src.problem)}</div>`;
+  if (S.me.isAdmin) {
+    if (src.hidden) {
+      html += `<div class="notice weeknote removed"><span><b>Removed from the hub.</b> Presenters can’t see ${esc(d.label)}’s scripts. Nothing was deleted from Drive.</span>
+        <button class="btn small" data-act="restoreweek" ${S.pending === 'week' ? 'disabled' : ''}>${S.pending === 'week' ? 'Restoring…' : 'Restore this week'}</button></div>`;
+    } else {
+      const armed = S.armed === 'week';
+      html += `<div class="weektools"><button class="btn small danger ${armed ? 'armed' : ''}" data-act="removeweek" ${S.pending === 'week' ? 'disabled' : ''}>
+        ${S.pending === 'week' ? 'Removing…' : (armed ? 'Tap again to remove ' + esc(d.label) : 'Remove this week’s scripts')}</button></div>`;
+    }
+  }
 
   let list = d.scripts;
   let viewer = S.me.name;
@@ -806,6 +820,30 @@ async function cancel(date, slot) {
   afterAction(r);
 }
 
+async function setWeekHidden(hide) {
+  if (hide && S.armed !== 'week') {
+    S.armed = 'week'; renderMain();
+    clearTimeout(S.armTimer);
+    S.armTimer = setTimeout(() => { if (S.armed === 'week') { S.armed = ''; renderMain(); } }, 4000);
+    return;
+  }
+  S.armed = ''; S.pending = 'week'; renderMain();
+  const week = S.week;
+  let r;
+  try { r = await call('apiSetWeekHidden', S.token, week, hide); }
+  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t update that week.' }; }
+  S.pending = '';
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  if (r && r.ok) {
+    const w = (S.boot.weeks || []).find((x) => x.week === week);
+    if (w) w.hidden = !!hide;
+    if (S.data && S.data.week === week) S.data.source.hidden = !!hide;
+    renderBar();
+  }
+  renderMain();
+  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+}
+
 function afterAction(r) {
   if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
   if (r && r.bookings && S.data) S.data.bookings = r.bookings;
@@ -849,6 +887,8 @@ document.addEventListener('click', (e) => {
   else if (act === 'copyscript') { const s = S.data.scripts[Number(el.dataset.i)]; if (s) copyText(teleprompterText(s), 'Script'); }
   else if (act === 'refresh') loadWeek(true);
   else if (act === 'thisweek') setWeek(S.boot.currentWeek);
+  else if (act === 'removeweek') setWeekHidden(true);
+  else if (act === 'restoreweek') setWeekHidden(false);
   else if (act === 'reload') loadWeek(false);
   else if (act === 'signout') { store.set('fth.token', null); S.token = ''; S.data = null; signinForm(''); }
   else if (act === 'signin-back') signinForm('');
