@@ -135,6 +135,8 @@
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
   .script { padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .script .toprow { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .script .presenters i { font-style: normal; color: var(--muted); }
+  .script .presenters .me { color: var(--ink); }
   .script h3 { margin: 0; font: 600 19px/1.3 var(--head); letter-spacing: -.005em; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   details.body > summary {
@@ -643,19 +645,22 @@ function emailOf(name) {
 
 function scriptCard(s, viewer, open) {
   const idx = S.data.scripts.indexOf(s);
-  const others = s.presenters.filter((p) => nameKey(p) !== nameKey(viewer || s.owner));
+  const people = s.presenters.length ? s.presenters : [s.owner];
+  const isMe = (p) => viewer && nameKey(p) === nameKey(viewer);
+  const who = people.map((p) => `<span class="${isMe(p) ? 'me' : ''}">${esc(p)}${isMe(p) && people.length > 1 ? ' (you)' : ''}</span>`).join('<i> &amp; </i>');
   const chips = [];
   if (s.format) chips.push(`<span class="chip fmt">${esc(s.format)}</span>`);
-  if (S.me.isAdmin && (S.who === 'all')) chips.push(`<span class="chip">${esc(s.owner)}</span>`);
-  if (s.presenters.length > 1 && others.length) chips.push(`<span class="chip">with ${esc(others.join(' & '))}</span>`);
+  if (people.length > 1) chips.push(`<span class="chip">${people.length === 2 ? 'Two-hander' : people.length + ' presenters'}</span>`);
   if (s.trend) chips.push(`<span class="chip trend"><b>${esc(s.trend.section || 'Trend')}</b>${esc(s.trend.title)}</span>`);
 
   const myFirst = nameKey(firstName(viewer));
   const myFull = nameKey(viewer);
+  const inIt = people.some(isMe);
   const lines = s.lines.map((l) => {
     if (!l.speaker) return `<p>${esc(l.say)}</p>`;
-    const k = nameKey(l.speaker);
-    const mine = viewer && (k === myFull || k === myFirst || k.split(' ')[0] === myFirst);
+    const raw = nameKey(l.speaker);
+    const k = (/\(([^)]+)\)/.exec(raw) || [, raw])[1].trim(); // "VO (Oliver Acton)" -> "oliver acton"
+    const mine = viewer && ((k === 'both' || k === 'all') ? inIt : (k === myFull || k === myFirst || k.split(' ')[0] === myFirst));
     return `<p class="${mine ? 'mine' : 'other'}"><span class="spk">${esc(l.speaker)}${mine ? ' · you' : ''}</span>${esc(l.say)}</p>`;
   }).join('') || '<p class="muted">No spoken lines in this export.</p>';
 
@@ -666,7 +671,7 @@ function scriptCard(s, viewer, open) {
       </div>` : '';
 
   return `<article class="panel script">
-    ${s.slot ? `<div class="toprow"><span class="label">${esc(s.slot)}</span></div>` : ''}
+    <div class="toprow"><span class="label presenters">${who}</span></div>
     <h3>${esc(s.title)}</h3>
     ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
     <details class="body" ${open ? 'open' : ''}>
