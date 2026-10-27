@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<title>FTA × TPC Filming Hub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23FCBB02%22/%3E%3Ctext x=%2216%22 y=%2221%22 font-family=%22Arial%22 font-weight=%22700%22 font-size=%2212%22 text-anchor=%22middle%22 fill=%22%231E1C17%22%3EFTA%3C/text%3E%3C/svg%3E">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Jost:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --stone-1: #ECEBE6;
+    --stone-2: #F6F5F2;
+    --panel: #FAF9F6;
+    --panel-2: #F3F1EA;
+    --ink: #1E1C17;
+    --ink-2: #4A463C;
+    --muted: #7A7466;
+    --line: rgba(30, 28, 23, .09);
+    --line-2: rgba(30, 28, 23, .16);
+    --yellow: #FCBB02;
+    --yellow-soft: #FFF3CC;
+    --yellow-wash: #FEF8E4;
+    --gold: #8A6200;
+    --red: #A23B1E;
+    --shadow: 0 1px 2px rgba(40, 34, 18, .06), 0 10px 28px -14px rgba(40, 34, 18, .22);
+    --shadow-sm: 0 1px 2px rgba(40, 34, 18, .07), 0 4px 12px -8px rgba(40, 34, 18, .2);
+    --r: 14px;
+    --head: 'Jost', system-ui, sans-serif;
+    --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(180deg, var(--stone-1) 0%, var(--stone-2) 70%) fixed;
+    background-color: var(--stone-2);
+    color: var(--ink);
+    font: 15px/1.55 var(--body);
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+  button, select, input { font: inherit; color: inherit; }
+  a { color: var(--gold); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- Header ---------- */
+  .top { padding: 20px 0 14px; }
+  .top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .mark {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    background: var(--yellow); color: var(--ink); border-radius: 9px; padding: 6px 10px;
+    font: 700 14px/1 var(--head); letter-spacing: .04em; box-shadow: var(--shadow-sm);
+  }
+  .mark i { font-style: normal; font-weight: 500; opacity: .55; }
+  .brand h1 { margin: 0; font: 600 22px/1.1 var(--head); letter-spacing: -.01em; white-space: nowrap; }
+  .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .who .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tag {
+    font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--gold); background: var(--yellow-soft); border-radius: 999px; padding: 5px 8px; white-space: nowrap;
+  }
+  .linkbtn { background: none; border: 0; padding: 6px 4px; color: var(--muted); cursor: pointer; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+  .linkbtn:hover { color: var(--ink); }
+
+  /* ---------- Week bar + tabs ---------- */
+  .bar { position: sticky; top: 0; z-index: 5; padding: 10px 0; background: linear-gradient(180deg, rgba(236,235,230,.96), rgba(240,239,235,.92)); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .bar .wrap { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: space-between; }
+  .weekpick { display: flex; align-items: center; gap: 6px; }
+  .iconbtn {
+    width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel);
+    display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-sm); font-size: 18px; line-height: 1; color: var(--ink-2);
+  }
+  .iconbtn:hover { border-color: var(--gold); color: var(--ink); }
+  .selectwrap { position: relative; }
+  .selectwrap select {
+    appearance: none; -webkit-appearance: none; height: 40px; padding: 0 36px 0 14px; border-radius: 10px;
+    border: 1px solid var(--line-2); background: var(--panel); box-shadow: var(--shadow-sm);
+    font: 600 16px/1 var(--head); cursor: pointer; min-width: 196px;
+  }
+  .selectwrap::after { content: ''; position: absolute; right: 14px; top: 50%; width: 7px; height: 7px; border-right: 2px solid var(--gold); border-bottom: 2px solid var(--gold); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+  .weekmeta { font: 400 11.5px/1.3 var(--mono); color: var(--muted); margin-left: 6px; }
+  .weekmeta b { color: var(--gold); font-weight: 500; }
+  .tabs { display: inline-flex; background: rgba(30,28,23,.06); border-radius: 12px; padding: 4px; gap: 2px; }
+  .tabs button {
+    border: 0; background: none; padding: 8px 16px; border-radius: 9px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--ink-2); min-height: 36px;
+  }
+  .tabs button[aria-selected="true"] { background: var(--yellow); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+  main { padding: 22px 0 64px; }
+
+  /* ---------- Shared bits ---------- */
+  .panel { background: var(--panel); border-radius: var(--r); box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,.6); }
+  .label { font: 500 11px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+  .muted { color: var(--muted); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 16px;
+    border-radius: 10px; border: 1px solid transparent; background: var(--yellow); color: var(--ink);
+    font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; box-shadow: var(--shadow-sm); white-space: nowrap;
+  }
+  .btn:hover { filter: brightness(.97); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.ghost { background: transparent; border-color: var(--line-2); box-shadow: none; color: var(--ink); }
+  .btn.ghost:hover { border-color: var(--gold); background: var(--yellow-wash); }
+  .btn.small { min-height: 34px; padding: 0 12px; font-size: 13px; }
+  .btn.danger { background: transparent; border-color: rgba(162,59,30,.35); color: var(--red); box-shadow: none; }
+  .btn.danger.armed { background: var(--red); color: #fff; border-color: var(--red); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    background: var(--panel-2); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); line-height: 1.35;
+  }
+  .chip.fmt { background: var(--yellow-soft); border-color: transparent; color: var(--gold); font-weight: 600; }
+  .chip.trend b { font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+  .chip.warn { background: #FBE9E2; border-color: transparent; color: var(--red); }
+  .chip.ok { background: var(--yellow-soft); border-color: transparent; color: var(--gold); }
+  .empty { padding: 44px 24px; text-align: center; }
+  .empty h2 { font: 600 20px/1.3 var(--head); margin: 0 0 6px; }
+  .empty p { margin: 0 auto; max-width: 440px; color: var(--muted); }
+  .notice { padding: 12px 16px; border-radius: 12px; background: var(--yellow-wash); border: 1px solid rgba(138,98,0,.18); color: var(--ink-2); font-size: 14px; margin-bottom: 18px; }
+
+  /* ---------- Scripts ---------- */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .filters button { border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 13.5px; font-weight: 500; min-height: 36px; }
+  .filters button[aria-pressed="true"] { background: var(--yellow); border-color: var(--yellow); font-weight: 600; }
+  .filters button small { font: 500 11px/1 var(--mono); color: var(--muted); margin-left: 4px; }
+  .day { margin-bottom: 30px; }
+  .dayhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 2px 12px; }
+  .dayhead h2 { margin: 0; font: 600 21px/1.2 var(--head); }
+  .dayhead .label { color: var(--muted); }
+  .dayhead .chip { margin-left: auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+  .script { padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .script .toprow { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .script h3 { margin: 0; font: 600 19px/1.3 var(--head); letter-spacing: -.005em; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  details.body > summary {
+    list-style: none; cursor: pointer; font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold);
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 0;
+  }
+  details.body > summary::-webkit-details-marker { display: none; }
+  details.body > summary::before { content: '+'; font-size: 15px; width: 12px; }
+  details.body[open] > summary::before { content: '–'; }
+  .lines { margin: 6px 0 0; border-left: 3px solid var(--yellow); padding: 2px 0 2px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .lines p { margin: 0; font-size: 15.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .lines .spk { display: block; font: 500 10.5px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 1px; }
+  .lines .mine .spk { color: var(--gold); }
+  .lines .other { color: var(--ink-2); }
+  .caption { margin-top: 14px; background: var(--panel-2); border-radius: 10px; padding: 12px 14px; }
+  .caption .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .caption p { margin: 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-2); }
+  .copy { border: 0; background: none; cursor: pointer; font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); padding: 6px 2px; }
+  .script .foot { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
+
+  /* ---------- Calendar ---------- */
+  .calhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+  .legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .legend .l-free::before { background: var(--panel); border: 1px dashed var(--line-2); }
+  .legend .l-mine::before { background: var(--yellow); }
+  .legend .l-taken::before { background: #E3E0D6; }
+  .bookas { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .bookas select { height: 38px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel); padding: 0 10px; font-weight: 600; }
+  .cal { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+  .cday { padding: 14px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .cday.today { outline: 2px solid var(--yellow); outline-offset: -2px; }
+  .cday .dh { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 0 2px; }
+  .cday .dh strong { font: 600 18px/1.2 var(--head); }
+  .cday .dh .label { color: var(--muted); }
+  .cday .blocks { display: flex; flex-direction: column; gap: 10px; }
+  .block { border-radius: 11px; padding: 11px 12px; min-height: 112px; display: flex; flex-direction: column; gap: 6px; border: 1px dashed var(--line-2); background: var(--panel); }
+  .block .label { color: var(--muted); }
+  .block .slotname { font-weight: 600; font-size: 14px; }
+  .block .who { font: 600 15px/1.3 var(--head); gap: 0; }
+  .block .act { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .block .act .btn { width: 100%; }
+  .block.taken { background: #ECE9E0; border: 1px solid transparent; }
+  .block.mine { background: var(--yellow); border: 1px solid transparent; box-shadow: var(--shadow-sm); }
+  .block.mine .label { color: rgba(30,28,23,.6); }
+  .block.mine .btn.danger { background: rgba(255,255,255,.55); border-color: rgba(30,28,23,.18); color: var(--ink); }
+  .block.mine .btn.danger.armed { background: var(--red); color: #fff; border-color: var(--red); }
+  .block.past { opacity: .55; }
+  .block .scriptsnote { font-size: 12px; color: var(--ink-2); }
+  .block.mine .scriptsnote { color: rgba(30,28,23,.75); }
+
+  /* ---------- Team (admin) ---------- */
+  .teamtools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+  .team { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .person { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .person h3 { margin: 0; font: 600 18px/1.2 var(--head); }
+  .person .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .dots div { text-align: center; padding: 8px 2px 7px; border-radius: 9px; background: var(--panel-2); }
+  .dots div.has { background: var(--yellow-soft); }
+  .dots .n { font: 600 17px/1.1 var(--head); display: block; }
+  .dots .label { font-size: 10px; color: var(--muted); }
+  .dots div.has .label { color: var(--gold); }
+  .booked { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bookinglist { margin-top: 26px; padding: 6px 0; }
+  .bookinglist h3 { margin: 12px 18px 6px; font: 600 17px/1.2 var(--head); }
+  .bookinglist table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .bookinglist th { text-align: left; font: 500 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); padding: 10px 18px; }
+  .bookinglist td { padding: 10px 18px; border-top: 1px solid var(--line); vertical-align: top; }
+  .bookinglist td.mono { font: 400 12px/1.4 var(--mono); color: var(--muted); }
+
+  /* ---------- Gate, loading, toast ---------- */
+  .gate { max-width: 460px; margin: 10vh auto 0; padding: 34px 30px; text-align: center; }
+  .gate .mark { margin-bottom: 18px; }
+  .gate h2 { font: 600 24px/1.25 var(--head); margin: 0 0 10px; }
+  .gate p { color: var(--ink-2); margin: 0 0 20px; }
+  .gate .btn { min-height: 46px; padding: 0 22px; font-size: 15px; }
+  .gate small { display: block; margin-top: 18px; color: var(--muted); font-size: 12.5px; }
+  .gate .notice { text-align: left; margin: 0 0 16px; }
+  .signin { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+  .signin input {
+    height: 48px; border-radius: 10px; border: 1px solid var(--line-2); background: #fff; padding: 0 14px;
+    font-size: 16px; width: 100%; min-width: 0;
+  }
+  .signin input:focus { outline: 2px solid var(--yellow); outline-offset: 0; border-color: var(--yellow); }
+  .signin #code { font: 600 24px/1 var(--mono); letter-spacing: .3em; text-align: center; }
+  .signin .btn { min-height: 48px; font-size: 15px; }
+  .signin .linkbtn { align-self: center; }
+  .loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 60px 0; color: var(--muted); font: 500 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(138,98,0,.2); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0;
+    background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 12px; font-size: 14px; box-shadow: var(--shadow);
+    transition: opacity .2s, transform .2s; pointer-events: none; max-width: calc(100vw - 32px); z-index: 20;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.err { background: var(--red); }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* ---------- Phones & small tablets ---------- */
+  @media (max-width: 940px) {
+    .cal { grid-template-columns: 1fr; gap: 10px; }
+    .cday { display: grid; grid-template-columns: 74px 1fr; align-items: stretch; gap: 10px; padding: 12px; }
+    .cday .dh { flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; }
+    .cday .blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .block { min-height: 104px; }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 15px; }
+    .wrap { padding: 0 14px; }
+    .top { padding: 14px 0 10px; }
+    .brand h1 { font-size: 18px; }
+    .mark { padding: 5px 8px; font-size: 12.5px; }
+    .who .name, .who .tag { display: none; }
+    .bar .wrap { gap: 10px; }
+    .weekpick { width: 100%; }
+    .selectwrap { flex: 1; }
+    .selectwrap select { width: 100%; min-width: 0; font-size: 15px; padding-left: 12px; }
+    .weekmeta { display: none; }
+    .tabs { width: 100%; }
+    .tabs button { flex: 1; padding: 8px 6px; }
+    main { padding-top: 16px; }
+    .cards { grid-template-columns: 1fr; gap: 12px; }
+    .script { padding: 16px; }
+    .dayhead .chip { margin-left: 0; }
+    .cday { grid-template-columns: 1fr; }
+    .cday .dh { flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 10px; }
+    .block { min-height: 96px; padding: 10px; }
+    .block .act .btn { min-height: 40px; }
+    .bookinglist th:nth-child(4), .bookinglist td:nth-child(4) { display: none; }
+    .bookinglist th, .bookinglist td { padding-left: 12px; padding-right: 12px; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="mark">FTA <i>×</i> TPC</span><h1>Filming Hub</h1></div>
+    <div class="who" id="who"></div>
+  </div>
+</header>
+<div class="bar" id="bar" hidden></div>
+<main><div class="wrap" id="main"><div class="loading"><span class="spinner"></span>Loading</div></div></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const BOOT = { token: '' };
+const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
+
+/* ---------- small helpers ---------- */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} },
+};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', ''];
+const DAY_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday', '': 'No day set' };
+
+async function call(fn, ...args) {
+  let res;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ fn, args }),
+      credentials: 'omit',
+      redirect: 'follow',
+    });
+  } catch (e) {
+    throw new Error('Couldn’t reach the hub. Check your connection and try again.');
+  }
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch (e) { throw new Error('The hub sent back something unexpected. Try again in a minute.'); }
+}
+function utc(iso) { const p = iso.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
+function addDays(iso, n) { const d = utc(iso); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function weekLabel(iso) { const d = utc(iso); return 'w/c ' + d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
+function firstName(n) { return String(n || '').trim().split(/\s+/)[0]; }
+function nameKey(n) { return String(n || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+function shortTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.getDate() + ' ' + MONTHS[d.getMonth()] + ', ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+let toastTimer;
+function toast(msg, isErr) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast' + (isErr ? ' err' : ''); }, 3200);
+}
+
+/* ---------- state ---------- */
+const S = {
+  token: '', boot: null, me: null, week: '', data: null, loading: false, req: 0,
+  tab: 'scripts', who: 'all', bookAs: '', pending: '', armed: '', armTimer: null,
+};
+
+/* ---------- start ---------- */
+async function start() {
+  S.token = S.token || BOOT.token || store.get('fth.token') || '';
+  if (BOOT.token) {
+    store.set('fth.token', BOOT.token);
+  }
+  let r;
+  try { r = await call('apiBootstrap', S.token); }
+  catch (e) { return gate({ code: 'ERROR', message: e && e.message }); }
+  if (!r || !r.ok) return gate(r || {});
+
+  S.boot = r;
+  S.me = r.user;
+  S.week = r.defaultWeek;
+  const savedTab = store.get('fth.tab');
+  const tabs = tabList();
+  S.tab = tabs.some((t) => t.id === savedTab) ? savedTab : 'scripts';
+  S.bookAs = store.get('fth.bookAs') || r.user.email;
+  renderWho();
+  renderBar();
+  loadWeek(false);
+  if (S.started) return;
+  S.started = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && S.data) loadWeek(false, true);
+  });
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && S.tab === 'calendar' && S.data && !S.pending) loadWeek(false, true);
+  }, 90000);
+}
+
+function tabList() {
+  const t = [{ id: 'scripts', label: S.me && S.me.isAdmin ? 'Scripts' : 'My scripts' }, { id: 'calendar', label: 'Calendar' }];
+  if (S.me && S.me.isAdmin) t.push({ id: 'team', label: 'Team' });
+  return t;
+}
+
+async function loadWeek(force, quiet) {
+  const id = ++S.req;
+  if (!quiet) { S.loading = true; renderMain(); }
+  let r;
+  try { r = await call('apiGetWeek', S.token, S.week, !!force); }
+  catch (e) { r = { ok: false, code: 'ERROR', message: (e && e.message) || 'Couldn’t reach the hub.' }; }
+  if (id !== S.req) return;
+  S.loading = false;
+  if (!r.ok) {
+    if (r.code === 'SIGNIN' || r.code === 'DENIED') return gate(r);
+    if (!quiet) { S.data = null; renderMain(r.message); }
+    return;
+  }
+  S.data = r;
+  renderBar();
+  renderMain();
+  if (force) toast('Refreshed from Drive');
+}
+
+/* ---------- gate (sign in / not allowed / errors) ---------- */
+function gate(r) {
+  $('#bar').hidden = true;
+  $('#who').innerHTML = '';
+  let title, body, actions = '';
+  if (r.code === 'SIGNIN' || r.code === 'DENIED') {
+    store.set('fth.token', null);
+    S.token = '';
+    return signinForm(r.code === 'DENIED' ? `<b>${esc(r.email)}</b> isn’t on the list any more. Ask Zach if that looks wrong.` : '');
+  } else {
+    title = 'Something went wrong';
+    body = esc(r.message || 'The hub didn’t respond. Try reloading.');
+    actions = `<button class="btn" data-act="restart">Try again</button>`;
+  }
+  $('#main').innerHTML = `
+    <div class="panel gate">
+      <span class="mark">FTA <i>×</i> TPC</span>
+      <h2>${title}</h2>
+      <p>${body}</p>
+      ${actions}
+      <small>Filming Hub for Frank Taylor &amp; Associates and The Principals Club</small>
+    </div>`;
+}
+
+/* ---------- email sign-in ---------- */
+function signinForm(note, step, email) {
+  $('#bar').hidden = true;
+  $('#who').innerHTML = '';
+  const saved = email || store.get('fth.email') || '';
+  const codeStep = step === 'code';
+  $('#main').innerHTML = `
+    <div class="panel gate">
+      <span class="mark">FTA <i>×</i> TPC</span>
+      <h2>${codeStep ? 'Check your email' : 'Sign in to the Filming Hub'}</h2>
+      <p>${codeStep
+        ? `We’ve sent a 6-digit code to <b>${esc(saved)}</b>. It can take a minute to arrive, so check spam too.`
+        : 'Enter the email address Zach has for you and we’ll send you a sign-in code.'}</p>
+      ${note ? `<div class="notice" id="signin-note">${note}</div>` : '<div class="notice" id="signin-note" hidden></div>'}
+      <form id="signin" class="signin" novalidate>
+        ${codeStep
+          ? `<label for="code" class="label">Code</label>
+             <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+             <button class="btn" type="submit" id="signin-go">Sign in</button>
+             <button class="linkbtn" type="button" data-act="signin-back">Use a different email or send a new code</button>`
+          : `<label for="email" class="label">Email</label>
+             <input id="email" name="email" type="email" autocomplete="email" value="${esc(saved)}" placeholder="you@example.com" required>
+             <button class="btn" type="submit" id="signin-go">Email me a code</button>
+             <button class="linkbtn" type="button" data-act="signin-have">I already have a code</button>`}
+      </form>
+      <small>Filming Hub for Frank Taylor &amp; Associates and The Principals Club</small>
+    </div>`;
+  const input = $(codeStep ? '#code' : '#email');
+  try { input.focus(); } catch (e) {}
+  $('#signin').addEventListener('submit', (e) => { e.preventDefault(); codeStep ? verifyCode(saved) : requestCode(); });
+}
+
+function signinNote(msg) {
+  const n = $('#signin-note');
+  if (!n) return;
+  n.innerHTML = esc(msg);
+  n.hidden = false;
+}
+
+async function requestCode() {
+  const email = $('#email').value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return signinNote('Enter your full email address.');
+  const btn = $('#signin-go');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  let r;
+  try { r = await call('apiRequestCode', email); }
+  catch (e) { r = { ok: false, message: 'Couldn’t reach the hub. Check your connection and try again.' }; }
+  if (!r.ok) { btn.disabled = false; btn.textContent = 'Email me a code'; return signinNote(r.message); }
+  store.set('fth.email', email);
+  signinForm('', 'code', email);
+}
+
+async function verifyCode(email) {
+  const code = $('#code').value.replace(/\D/g, '');
+  if (code.length !== 6) return signinNote('The code is 6 digits.');
+  const btn = $('#signin-go');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  let r;
+  try { r = await call('apiVerifyCode', email, code); }
+  catch (e) { r = { ok: false, message: 'Couldn’t reach the hub. Check your connection and try again.' }; }
+  if (!r.ok) { btn.disabled = false; btn.textContent = 'Sign in'; return signinNote(r.message); }
+  store.set('fth.token', r.token);
+  S.token = r.token;
+  $('#main').innerHTML = '<div class="loading"><span class="spinner"></span>Loading</div>';
+  start();
+}
+
+/* ---------- header + bar ---------- */
+function renderWho() {
+  const showSignOut = !!S.token;
+  $('#who').innerHTML = `
+    <span class="name">${esc(S.me.name)}</span>
+    ${S.me.isAdmin ? '<span class="tag">Admin</span>' : ''}
+    ${showSignOut ? '<button class="linkbtn" data-act="signout">Sign out</button>' : ''}`;
+}
+
+function weekOptions() {
+  const set = new Map();
+  (S.boot.weeks || []).forEach((w) => set.set(w.week, w.label));
+  [S.boot.currentWeek, S.boot.defaultWeek, S.week].forEach((w) => { if (w && !set.has(w)) set.set(w, weekLabel(w)); });
+  return [...set.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
+}
+
+function renderBar() {
+  const bar = $('#bar');
+  bar.hidden = false;
+  const opts = weekOptions().map(([w, label]) => {
+    const tagged = w === S.boot.currentWeek ? ' · this week' : (w === addDays(S.boot.currentWeek, 7) ? ' · next week' : '');
+    return `<option value="${w}" ${w === S.week ? 'selected' : ''}>${esc(label + tagged)}</option>`;
+  }).join('');
+  let meta = '';
+  if (S.data && S.data.week === S.week && S.data.source.found) {
+    const src = S.data.source;
+    meta = `<span class="weekmeta">Export <b>${src.exportNo || 1}</b>${src.exportedAt ? ' · ' + esc(shortTime(src.exportedAt)) : ''}</span>`;
+  }
+  const tabs = tabList().map((t) => `<button role="tab" aria-selected="${t.id === S.tab}" data-act="tab" data-tab="${t.id}">${esc(t.label)}</button>`).join('');
+  bar.innerHTML = `
+    <div class="wrap">
+      <div class="weekpick">
+        <button class="iconbtn" data-act="prev" aria-label="Previous week">‹</button>
+        <div class="selectwrap"><select id="weeksel" aria-label="Week">${opts}</select></div>
+        <button class="iconbtn" data-act="next" aria-label="Next week">›</button>
+        ${meta}
+      </div>
+      <div class="tabs" role="tablist">${tabs}</div>
+    </div>`;
+  $('#weeksel').addEventListener('change', (e) => setWeek(e.target.value));
+}
+
+function setWeek(w) {
+  if (!w || w === S.week) return;
+  S.week = w;
+  S.data = null;
+  renderBar();
+  loadWeek(false);
+}
+
+/* ---------- main router ---------- */
+function renderMain(errMsg) {
+  const main = $('#main');
+  if (S.loading || (!S.data && !errMsg)) { main.innerHTML = '<div class="loading"><span class="spinner"></span>Loading week</div>'; return; }
+  if (errMsg) {
+    main.innerHTML = `<div class="panel empty"><h2>Couldn’t load this week</h2><p>${esc(errMsg)}</p><p style="margin-top:16px"><button class="btn" data-act="reload">Try again</button></p></div>`;
+    return;
+  }
+  if (S.tab === 'calendar') main.innerHTML = viewCalendar();
+  else if (S.tab === 'team' && S.me.isAdmin) main.innerHTML = viewTeam();
+  else main.innerHTML = viewScripts();
+}
+
+/* ---------- scripts ---------- */
+function scriptsFor(name) {
+  const me = nameKey(name), first = me.split(' ')[0];
+  return S.data.scripts.filter((s) => nameKey(s.owner) === me || s.presenters.some((p) => {
+    const k = nameKey(p);
+    return k === me || (k.indexOf(' ') < 0 && k === first);
+  }));
+}
+function bookingsFor(name) {
+  if (!S.me.isAdmin) return S.data.bookings.filter((b) => b.mine);
+  const em = emailOf(name);
+  return S.data.bookings.filter((b) => (em ? b.email === em : nameKey(b.name) === nameKey(name)));
+}
+function slotLabel(key) { const s = S.boot.slots.find((x) => x.key === key); return s ? s.label : key; }
+
+function viewScripts() {
+  const d = S.data;
+  const src = d.source;
+  let html = '';
+  if (!src.found) {
+    return `<div class="panel empty"><h2>No scripts for ${esc(d.label)} yet</h2><p>They’ll appear here as soon as the Script Maker exports this week. You can still book filming blocks in the calendar.</p></div>`;
+  }
+  if (src.problem) html += `<div class="notice">${esc(src.problem)}</div>`;
+
+  let list = d.scripts;
+  let viewer = S.me.name;
+  if (S.me.isAdmin) {
+    const names = [];
+    (S.boot.people || []).filter((p) => !p.isAdmin).forEach((p) => names.push(p.name));
+    d.scripts.forEach((s) => { if (s.owner && !names.some((n) => nameKey(n) === nameKey(s.owner))) names.push(s.owner); });
+    if (S.who !== 'all' && !names.some((n) => n === S.who)) S.who = 'all';
+    html += '<div class="filters" role="group" aria-label="Presenter">' +
+      `<button data-act="who" data-who="all" aria-pressed="${S.who === 'all'}">Everyone<small>${d.scripts.length}</small></button>` +
+      names.map((n) => `<button data-act="who" data-who="${esc(n)}" aria-pressed="${S.who === n}">${esc(n)}<small>${scriptsFor(n).length}</small></button>`).join('') +
+      '</div>';
+    if (S.who !== 'all') { list = scriptsFor(S.who); viewer = S.who; }
+    else viewer = '';
+  }
+
+  if (!list.length) {
+    const who = S.me.isAdmin ? (S.who === 'all' ? 'anyone' : S.who) : 'you';
+    html += `<div class="panel empty"><h2>No scripts for ${esc(who)} this week</h2><p>${S.me.isAdmin ? 'Nothing in this export matches that name.' : 'Nothing in this week’s export has your name on it. If that looks wrong, let Zach know.'}</p></div>`;
+    return html;
+  }
+
+  const groups = {};
+  list.forEach((s, i) => { (groups[s.day] = groups[s.day] || []).push(s); });
+  const myBookings = viewer ? bookingsFor(viewer) : [];
+  const openByDefault = !S.me.isAdmin || S.who !== 'all';
+
+  DAY_ORDER.filter((k) => groups[k]).forEach((k) => {
+    const dayInfo = d.days.find((x) => x.dow === k);
+    const booked = dayInfo ? myBookings.filter((b) => b.date === dayInfo.date).map((b) => slotLabel(b.slot).toLowerCase()) : [];
+    const chip = booked.length ? `<span class="chip ok">Filming ${esc(booked.join(' + '))}</span>` : '';
+    const items = groups[k].sort((a, b) => a.order - b.order);
+    html += `<section class="day">
+      <div class="dayhead"><h2>${DAY_FULL[k]}</h2>${dayInfo ? `<span class="label">${esc(dayInfo.label)}</span>` : ''}<span class="label">${items.length} script${items.length === 1 ? '' : 's'}</span>${chip}</div>
+      <div class="cards">${items.map((s) => scriptCard(s, viewer, openByDefault)).join('')}</div>
+    </section>`;
+  });
+  return html;
+}
+
+function emailOf(name) {
+  const p = (S.boot.people || []).find((x) => nameKey(x.name) === nameKey(name));
+  return p ? p.email : '';
+}
+
+function scriptCard(s, viewer, open) {
+  const idx = S.data.scripts.indexOf(s);
+  const others = s.presenters.filter((p) => nameKey(p) !== nameKey(viewer || s.owner));
+  const chips = [];
+  if (s.format) chips.push(`<span class="chip fmt">${esc(s.format)}</span>`);
+  if (S.me.isAdmin && (S.who === 'all')) chips.push(`<span class="chip">${esc(s.owner)}</span>`);
+  if (s.presenters.length > 1 && others.length) chips.push(`<span class="chip">with ${esc(others.join(' & '))}</span>`);
+  if (s.trend) chips.push(`<span class="chip trend"><b>${esc(s.trend.section || 'Trend')}</b>${esc(s.trend.title)}</span>`);
+
+  const myFirst = nameKey(firstName(viewer));
+  const myFull = nameKey(viewer);
+  const lines = s.lines.map((l) => {
+    if (!l.speaker) return `<p>${esc(l.say)}</p>`;
+    const k = nameKey(l.speaker);
+    const mine = viewer && (k === myFull || k === myFirst || k.split(' ')[0] === myFirst);
+    return `<p class="${mine ? 'mine' : 'other'}"><span class="spk">${esc(l.speaker)}${mine ? ' · you' : ''}</span>${esc(l.say)}</p>`;
+  }).join('') || '<p class="muted">No spoken lines in this export.</p>';
+
+  const caption = s.caption ? `
+      <div class="caption">
+        <div class="row"><span class="label">Caption</span><button class="copy" data-act="copy" data-i="${idx}">Copy</button></div>
+        <p>${esc(s.caption)}</p>
+      </div>` : '';
+
+  return `<article class="panel script">
+    ${s.slot ? `<div class="toprow"><span class="label">${esc(s.slot)}</span></div>` : ''}
+    <h3>${esc(s.title)}</h3>
+    ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
+    <details class="body" ${open ? 'open' : ''}>
+      <summary>Script${s.caption ? ' & caption' : ''}</summary>
+      <div class="lines">${lines}</div>
+      ${caption}
+    </details>
+    ${s.docUrl ? `<div class="foot"><a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc ↗</a></div>` : ''}
+  </article>`;
+}
+
+/* ---------- calendar ---------- */
+function blockState(date, slot) {
+  const now = S.data.now;
+  const started = date < now.date || (date === now.date && slot.startMin <= now.minutes);
+  const ended = date < now.date || (date === now.date && slot.endMin <= now.minutes);
+  return { started, ended };
+}
+
+function viewCalendar() {
+  const d = S.data;
+  const admin = S.me.isAdmin;
+  let tools = '';
+  if (admin) {
+    const people = S.boot.people || [];
+    if (!people.some((p) => p.email === S.bookAs)) S.bookAs = S.me.email;
+    tools = `<label class="bookas">Book as
+      <select id="bookas">${people.map((p) => `<option value="${esc(p.email)}" ${p.email === S.bookAs ? 'selected' : ''}>${esc(p.email === S.me.email ? p.name + ' (me)' : p.name)}</option>`).join('')}</select>
+    </label>`;
+  }
+  const mine = scriptsFor(S.me.name);
+  const cols = d.days.map((day) => {
+    const isToday = day.date === d.now.date;
+    const nScripts = admin ? 0 : mine.filter((s) => s.day === day.dow).length;
+    const blocks = S.boot.slots.map((slot) => {
+      const b = d.bookings.find((x) => x.date === day.date && x.slot === slot.key);
+      const st = blockState(day.date, slot);
+      const key = day.date + '|' + slot.key;
+      const busy = S.pending === key;
+      let cls = 'block', who = '', act = '';
+      if (b) {
+        cls += b.mine ? ' mine' : ' taken';
+        who = `<span class="who">${b.mine ? 'You' : esc(b.name)}</span>`;
+        if ((b.mine && !st.started) || admin) {
+          const armed = S.armed === key;
+          act = `<button class="btn small danger ${armed ? 'armed' : ''}" data-act="cancel" data-date="${day.date}" data-slot="${slot.key}" ${busy ? 'disabled' : ''}>${busy ? 'Cancelling…' : (armed ? 'Tap to confirm' : 'Cancel')}</button>`;
+        }
+        if (b.mine && nScripts) who += `<span class="scriptsnote">${nScripts} script${nScripts === 1 ? '' : 's'} for ${day.dow}</span>`;
+      } else if (st.started && !admin) {
+        who = `<span class="muted" style="font-size:13px">${st.ended ? 'Past' : 'In progress'}</span>`;
+      } else {
+        who = `<span class="muted" style="font-size:13px">Free</span>`;
+        act = `<button class="btn small" data-act="book" data-date="${day.date}" data-slot="${slot.key}" ${busy ? 'disabled' : ''}>${busy ? 'Booking…' : 'Book'}</button>`;
+      }
+      if (st.ended) cls += ' past';
+      return `<div class="${cls}">
+        <span class="label">${esc(slot.start)}–${esc(slot.end)}</span>
+        <span class="slotname">${esc(slot.label)}</span>
+        ${who}
+        <div class="act">${act}</div>
+      </div>`;
+    }).join('');
+    return `<div class="panel cday ${isToday ? 'today' : ''}">
+      <div class="dh"><strong>${day.dow}</strong><span class="label">${esc(day.label)}${isToday ? ' · today' : ''}</span></div>
+      <div class="blocks">${blocks}</div>
+    </div>`;
+  }).join('');
+
+  const myCount = d.bookings.filter((b) => b.mine).length;
+  const summary = admin
+    ? `${d.bookings.length} of ${d.days.length * S.boot.slots.length} blocks booked`
+    : (myCount ? `You’ve booked ${myCount} block${myCount === 1 ? '' : 's'} this week` : 'You haven’t booked a block this week');
+  return `<div class="calhead">
+      <div><div class="label">${esc(summary)}</div></div>
+      <div class="legend"><span class="l-free">Free</span><span class="l-mine">${admin ? 'Booked by you' : 'Yours'}</span><span class="l-taken">Taken</span></div>
+      ${tools}
+    </div>
+    <div class="cal">${cols}</div>`;
+}
+
+/* ---------- team (admin) ---------- */
+function viewTeam() {
+  const d = S.data;
+  const people = (S.boot.people || []).filter((p) => !p.isAdmin || d.bookings.some((b) => b.email === p.email));
+  let html = `<div class="teamtools">
+    <button class="btn ghost small" data-act="refresh">Refresh from Drive</button>
+    ${d.source.folderUrl ? `<a class="btn ghost small" href="${esc(d.source.folderUrl)}" target="_blank" rel="noopener">Open week folder ↗</a>` : ''}
+    ${S.boot.sheetUrl ? `<a class="btn ghost small" href="${esc(S.boot.sheetUrl)}" target="_blank" rel="noopener">Settings &amp; bookings sheet ↗</a>` : ''}
+  </div>`;
+  if (d.source.unmatched && d.source.unmatched.length) {
+    html += `<div class="notice">These names are in the export but not on the People tab, so nobody sees their scripts: <b>${esc(d.source.unmatched.join(', '))}</b>.</div>`;
+  }
+  if (!d.source.found) html += `<div class="notice">No Script Maker export for ${esc(d.label)} yet.</div>`;
+
+  html += '<div class="team">' + people.map((p) => {
+    const scripts = scriptsFor(p.name);
+    const bk = d.bookings.filter((b) => b.email === p.email).sort((a, b) => (a.date + a.slot < b.date + b.slot ? -1 : 1));
+    const dots = d.days.map((day) => {
+      const n = scripts.filter((s) => s.day === day.dow).length;
+      return `<div class="${n ? 'has' : ''}"><span class="n">${n}</span><span class="label">${day.dow}</span></div>`;
+    }).join('');
+    const booked = bk.length
+      ? bk.map((b) => `<span class="chip ok">${esc(d.days.find((x) => x.date === b.date).dow)} ${esc(slotLabel(b.slot).toLowerCase())}</span>`).join('')
+      : (scripts.length ? '<span class="chip warn">No filming block booked</span>' : '<span class="chip">No bookings</span>');
+    return `<div class="panel person">
+      <div class="row"><h3>${esc(p.name)}</h3><span class="label">${scripts.length} script${scripts.length === 1 ? '' : 's'}</span></div>
+      <div class="dots">${dots}</div>
+      <div class="booked">${booked}</div>
+      ${scripts.length ? `<button class="btn ghost small" data-act="seescripts" data-who="${esc(p.name)}">View scripts</button>` : ''}
+    </div>`;
+  }).join('') + '</div>';
+
+  const rows = d.bookings.slice().sort((a, b) => (a.date + a.slot < b.date + b.slot ? -1 : 1)).map((b) => {
+    const day = d.days.find((x) => x.date === b.date);
+    return `<tr><td>${esc(day.dow + ' ' + day.label)}</td><td>${esc(slotLabel(b.slot))}</td><td>${esc(b.name)}</td><td class="mono">${esc(b.bookedAt || '')}${b.bookedBy && b.bookedBy !== b.email ? ' · by ' + esc(b.bookedBy) : ''}</td></tr>`;
+  }).join('');
+  html += `<div class="panel bookinglist"><h3>All bookings this week</h3>${rows
+    ? `<table><thead><tr><th>Day</th><th>Block</th><th>Presenter</th><th>Booked</th></tr></thead><tbody>${rows}</tbody></table>`
+    : '<p class="muted" style="margin:6px 18px 14px">Nothing booked yet.</p>'}</div>`;
+  return html;
+}
+
+/* ---------- actions ---------- */
+async function book(date, slot) {
+  const key = date + '|' + slot;
+  S.pending = key; renderMain();
+  let r;
+  try { r = await call('apiBook', S.token, date, slot, S.me.isAdmin ? S.bookAs : null); }
+  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t book that block.' }; }
+  S.pending = '';
+  afterAction(r);
+}
+
+async function cancel(date, slot) {
+  const key = date + '|' + slot;
+  if (S.armed !== key) {
+    S.armed = key; renderMain();
+    clearTimeout(S.armTimer);
+    S.armTimer = setTimeout(() => { if (S.armed === key) { S.armed = ''; renderMain(); } }, 4000);
+    return;
+  }
+  S.armed = ''; S.pending = key; renderMain();
+  let r;
+  try { r = await call('apiCancel', S.token, date, slot); }
+  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t cancel that block.' }; }
+  S.pending = '';
+  afterAction(r);
+}
+
+function afterAction(r) {
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  if (r && r.bookings && S.data) S.data.bookings = r.bookings;
+  renderMain();
+  toast((r && r.message) || (r && r.ok ? 'Done' : 'Something went wrong'), !(r && r.ok));
+}
+
+function copyText(text) {
+  const done = () => toast('Caption copied');
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toast('Couldn’t copy — select the text instead', true); }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+  else fallback();
+}
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'tab') { S.tab = el.dataset.tab; store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0); }
+  else if (act === 'prev') setWeek(addDays(S.week, -7));
+  else if (act === 'next') setWeek(addDays(S.week, 7));
+  else if (act === 'who') { S.who = el.dataset.who; renderMain(); }
+  else if (act === 'seescripts') { S.who = el.dataset.who; S.tab = 'scripts'; store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0); }
+  else if (act === 'book') book(el.dataset.date, el.dataset.slot);
+  else if (act === 'cancel') cancel(el.dataset.date, el.dataset.slot);
+  else if (act === 'copy') { const s = S.data.scripts[Number(el.dataset.i)]; if (s) copyText(s.caption); }
+  else if (act === 'refresh') loadWeek(true);
+  else if (act === 'reload') loadWeek(false);
+  else if (act === 'signout') { store.set('fth.token', null); S.token = ''; S.data = null; signinForm(''); }
+  else if (act === 'signin-back') signinForm('');
+  else if (act === 'signin-have') {
+    const em = ($('#email') && $('#email').value.trim().toLowerCase()) || '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) signinNote('Enter your email first, then use the code from your email.');
+    else { store.set('fth.email', em); signinForm('', 'code', em); }
+  }
+  else if (act === 'restart') { $('#main').innerHTML = '<div class="loading"><span class="spinner"></span>Loading</div>'; start(); }
+});
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'bookas') { S.bookAs = e.target.value; store.set('fth.bookAs', S.bookAs); }
+});
+
+start();
+</script>
+</body>
+</html>
