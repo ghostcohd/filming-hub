@@ -131,7 +131,7 @@
   .dayhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 2px 12px; }
   .dayhead h2 { margin: 0; font: 600 21px/1.2 var(--head); }
   .dayhead .label { color: var(--muted); }
-  .dayhead .chip { margin-left: auto; }
+  .dayhead-chips { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
   .script { padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .script .toprow { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
@@ -277,7 +277,7 @@
     main { padding-top: 16px; }
     .cards { grid-template-columns: 1fr; gap: 12px; }
     .script { padding: 16px; }
-    .dayhead .chip { margin-left: 0; }
+    .dayhead-chips { margin-left: 0; width: 100%; }
     .cday { grid-template-columns: 1fr; }
     .cday .dh { flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 10px; }
     .block { min-height: 96px; padding: 10px; }
@@ -310,8 +310,6 @@ const store = {
   set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} },
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', ''];
-const DAY_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday', '': 'No day set' };
 
 async function call(fn, ...args) {
   let res;
@@ -612,21 +610,15 @@ function viewScripts() {
     return html;
   }
 
-  const groups = {};
-  list.forEach((s, i) => { (groups[s.day] = groups[s.day] || []).push(s); });
-  const myBookings = viewer ? bookingsFor(viewer) : [];
-  const openByDefault = false;
-
-  DAY_ORDER.filter((k) => groups[k]).forEach((k) => {
-    const dayInfo = d.days.find((x) => x.dow === k);
-    const booked = dayInfo ? myBookings.filter((b) => b.date === dayInfo.date).map((b) => slotLabel(b.slot).toLowerCase()) : [];
-    const chip = booked.length ? `<span class="chip ok">Filming ${esc(booked.join(' + '))}</span>` : '';
-    const items = groups[k].sort((a, b) => a.order - b.order);
-    html += `<section class="day">
-      <div class="dayhead"><h2>${DAY_FULL[k]}</h2>${dayInfo ? `<span class="label">${esc(dayInfo.label)}</span>` : ''}<span class="label">${items.length} script${items.length === 1 ? '' : 's'}</span>${chip}</div>
-      <div class="cards">${items.map((s) => scriptCard(s, viewer, openByDefault)).join('')}</div>
+  const myBookings = viewer ? bookingsFor(viewer).slice().sort((a, b) => (a.date + a.slot < b.date + b.slot ? -1 : 1)) : [];
+  const chips = myBookings.map((b) => {
+    const day = d.days.find((x) => x.date === b.date);
+    return `<span class="chip ok">Filming ${esc((day ? day.dow + ' ' : '') + slotLabel(b.slot).toLowerCase())}</span>`;
+  }).join('');
+  html += `<section class="day">
+      <div class="dayhead"><h2>${esc(S.me.isAdmin && S.who === 'all' ? 'All scripts' : 'Scripts to film')}</h2><span class="label">${list.length} script${list.length === 1 ? '' : 's'}</span>${chips ? `<span class="dayhead-chips">${chips}</span>` : ''}</div>
+      <div class="cards">${list.map((s) => scriptCard(s, viewer, false)).join('')}</div>
     </section>`;
-  });
   return html;
 }
 
@@ -695,10 +687,8 @@ function viewCalendar() {
       <select id="bookas">${people.map((p) => `<option value="${esc(p.email)}" ${p.email === S.bookAs ? 'selected' : ''}>${esc(p.email === S.me.email ? p.name + ' (me)' : p.name)}</option>`).join('')}</select>
     </label>`;
   }
-  const mine = scriptsFor(S.me.name);
   const cols = d.days.map((day) => {
     const isToday = day.date === d.now.date;
-    const nScripts = admin ? 0 : mine.filter((s) => s.day === day.dow).length;
     const blocks = S.boot.slots.map((slot) => {
       const b = d.bookings.find((x) => x.date === day.date && x.slot === slot.key);
       const st = blockState(day.date, slot);
@@ -712,7 +702,6 @@ function viewCalendar() {
           const armed = S.armed === key;
           act = `<button class="btn small danger ${armed ? 'armed' : ''}" data-act="cancel" data-date="${day.date}" data-slot="${slot.key}" ${busy ? 'disabled' : ''}>${busy ? 'Cancelling…' : (armed ? 'Tap to confirm' : 'Cancel')}</button>`;
         }
-        if (b.mine && nScripts) who += `<span class="scriptsnote">${nScripts} script${nScripts === 1 ? '' : 's'} for ${day.dow}</span>`;
       } else if (st.started && !admin) {
         who = `<span class="muted" style="font-size:13px">${st.ended ? 'Past' : 'In progress'}</span>`;
       } else {
@@ -767,16 +756,11 @@ function viewTeam() {
   html += '<div class="team">' + people.map((p) => {
     const scripts = scriptsFor(p.name);
     const bk = d.bookings.filter((b) => b.email === p.email).sort((a, b) => (a.date + a.slot < b.date + b.slot ? -1 : 1));
-    const dots = d.days.map((day) => {
-      const n = scripts.filter((s) => s.day === day.dow).length;
-      return `<div class="${n ? 'has' : ''}"><span class="n">${n}</span><span class="label">${day.dow}</span></div>`;
-    }).join('');
     const booked = bk.length
       ? bk.map((b) => `<span class="chip ok">${esc(d.days.find((x) => x.date === b.date).dow)} ${esc(slotLabel(b.slot).toLowerCase())}</span>`).join('')
       : (scripts.length ? '<span class="chip warn">No filming block booked</span>' : '<span class="chip">No bookings</span>');
     return `<div class="panel person">
       <div class="row"><h3>${esc(p.name)}</h3><span class="label">${scripts.length} script${scripts.length === 1 ? '' : 's'}</span></div>
-      <div class="dots">${dots}</div>
       <div class="booked">${booked}</div>
       ${scripts.length ? `<button class="btn ghost small" data-act="seescripts" data-who="${esc(p.name)}">View scripts</button>` : ''}
     </div>`;
