@@ -139,11 +139,27 @@
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   details.body > summary {
     list-style: none; cursor: pointer; font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold);
-    display: inline-flex; align-items: center; gap: 8px; padding: 6px 0;
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; min-height: 44px;
+    background: var(--yellow-wash); border: 1px solid rgba(138,98,0,.18); border-radius: 10px;
   }
+  details.body > summary:hover { border-color: var(--gold); }
   details.body > summary::-webkit-details-marker { display: none; }
-  details.body > summary::before { content: '+'; font-size: 15px; width: 12px; }
-  details.body[open] > summary::before { content: '–'; }
+  details.body > summary::before {
+    content: ''; width: 7px; height: 7px; border-right: 2px solid var(--gold); border-bottom: 2px solid var(--gold);
+    transform: rotate(-45deg); transition: transform .15s; flex: none; margin-right: 2px;
+  }
+  details.body[open] > summary::before { transform: rotate(45deg); }
+  details.body .sum-label { flex: 1; }
+  details.body .sum-count { color: var(--muted); }
+  details.body .sum-hide, details.body[open] .sum-show { display: none; }
+  details.body[open] .sum-hide { display: inline; }
+  details.body .preview {
+    margin: 10px 2px 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  details.body[open] .preview { display: none; }
+  details.body[open] .lines { margin-top: 14px; }
+  @media (prefers-reduced-motion: reduce) { details.body > summary::before { transition: none; } }
   .lines { margin: 6px 0 0; border-left: 3px solid var(--yellow); padding: 2px 0 2px 14px; display: flex; flex-direction: column; gap: 10px; }
   .lines p { margin: 0; font-size: 15.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
   .lines .spk { display: block; font: 500 10.5px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 1px; }
@@ -156,6 +172,7 @@
   .script .foot { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
 
   /* ---------- Calendar ---------- */
+  .weeknote { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .calhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
   .legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
@@ -598,7 +615,7 @@ function viewScripts() {
   const groups = {};
   list.forEach((s, i) => { (groups[s.day] = groups[s.day] || []).push(s); });
   const myBookings = viewer ? bookingsFor(viewer) : [];
-  const openByDefault = !S.me.isAdmin || S.who !== 'all';
+  const openByDefault = false;
 
   DAY_ORDER.filter((k) => groups[k]).forEach((k) => {
     const dayInfo = d.days.find((x) => x.dow === k);
@@ -647,7 +664,11 @@ function scriptCard(s, viewer, open) {
     <h3>${esc(s.title)}</h3>
     ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
     <details class="body" ${open ? 'open' : ''}>
-      <summary>Script${s.caption ? ' & caption' : ''}</summary>
+      <summary>
+        <span class="sum-label"><span class="sum-show">Read script</span><span class="sum-hide">Hide script</span>${s.caption ? ' &amp; caption' : ''}</span>
+        <span class="sum-count">${s.lines.length} line${s.lines.length === 1 ? '' : 's'}</span>
+      </summary>
+      ${s.lines[0] ? `<p class="preview">${esc(s.lines[0].say)}</p>` : ''}
       <div class="lines">${lines}</div>
       ${caption}
     </details>
@@ -716,7 +737,12 @@ function viewCalendar() {
   const summary = admin
     ? `${d.bookings.length} of ${d.days.length * S.boot.slots.length} blocks booked`
     : (myCount ? `You’ve booked ${myCount} block${myCount === 1 ? '' : 's'} this week` : 'You haven’t booked a block this week');
-  return `<div class="calhead">
+  const lastDay = d.days[d.days.length - 1].date;
+  const finished = lastDay < d.now.date;
+  const notice = finished && S.week !== S.boot.currentWeek
+    ? `<div class="notice weeknote"><span>${esc(d.label)} has finished, so there’s nothing left to book.</span><button class="btn small" data-act="thisweek">Go to this week</button></div>`
+    : '';
+  return `${notice}<div class="calhead">
       <div><div class="label">${esc(summary)}</div></div>
       <div class="legend"><span class="l-free">Free</span><span class="l-mine">${admin ? 'Booked by you' : 'Yours'}</span><span class="l-taken">Taken</span></div>
       ${tools}
@@ -826,6 +852,7 @@ document.addEventListener('click', (e) => {
   else if (act === 'cancel') cancel(el.dataset.date, el.dataset.slot);
   else if (act === 'copy') { const s = S.data.scripts[Number(el.dataset.i)]; if (s) copyText(s.caption); }
   else if (act === 'refresh') loadWeek(true);
+  else if (act === 'thisweek') setWeek(S.boot.currentWeek);
   else if (act === 'reload') loadWeek(false);
   else if (act === 'signout') { store.set('fth.token', null); S.token = ''; S.data = null; signinForm(''); }
   else if (act === 'signin-back') signinForm('');
