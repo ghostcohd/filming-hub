@@ -169,7 +169,7 @@
   .caption .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
   .caption p { margin: 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-2); }
   .copy { border: 0; background: none; cursor: pointer; font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); padding: 6px 2px; }
-  .script .foot { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
+  .script .foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
 
   /* ---------- Calendar ---------- */
   .weeknote { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -664,7 +664,10 @@ function scriptCard(s, viewer, open) {
       <div class="lines">${lines}</div>
       ${caption}
     </details>
-    ${s.docUrl ? `<div class="foot"><a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc ↗</a></div>` : ''}
+    <div class="foot">
+      ${s.lines.length ? `<button class="btn small" data-act="copyscript" data-i="${idx}">Copy script</button>` : ''}
+      ${s.docUrl ? `<a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc ↗</a>` : ''}
+    </div>
   </article>`;
 }
 
@@ -810,8 +813,16 @@ function afterAction(r) {
   toast((r && r.message) || (r && r.ok ? 'Done' : 'Something went wrong'), !(r && r.ok));
 }
 
-function copyText(text) {
-  const done = () => toast('Caption copied');
+/** Just the spoken lines, ready for a teleprompter. Two-handers keep who says what. */
+function teleprompterText(s) {
+  const twoPeople = s.lines.some((l) => l.speaker);
+  return s.lines
+    .map((l) => (twoPeople && l.speaker ? l.speaker.toUpperCase() + ': ' : '') + l.say.trim())
+    .join('\n\n');
+}
+
+function copyText(text, what) {
+  const done = () => toast((what || 'Caption') + ' copied');
   const fallback = () => {
     const ta = document.createElement('textarea');
     ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
@@ -835,6 +846,7 @@ document.addEventListener('click', (e) => {
   else if (act === 'book') book(el.dataset.date, el.dataset.slot);
   else if (act === 'cancel') cancel(el.dataset.date, el.dataset.slot);
   else if (act === 'copy') { const s = S.data.scripts[Number(el.dataset.i)]; if (s) copyText(s.caption); }
+  else if (act === 'copyscript') { const s = S.data.scripts[Number(el.dataset.i)]; if (s) copyText(teleprompterText(s), 'Script'); }
   else if (act === 'refresh') loadWeek(true);
   else if (act === 'thisweek') setWeek(S.boot.currentWeek);
   else if (act === 'reload') loadWeek(false);
