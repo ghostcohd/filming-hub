@@ -8,7 +8,7 @@
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Jost:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --stone-1: #ECEBE6;
@@ -289,6 +289,109 @@
     .bookinglist th:nth-child(4), .bookinglist td:nth-child(4) { display: none; }
     .bookinglist th, .bookinglist td { padding-left: 12px; padding-right: 12px; }
   }
+  /* ================= FTA Content Studio look (28 Oct) ================= */
+  :root {
+    --ink-deep: #16150F; --on-dark: #F4F1E8; --on-dark-muted: #A9A496;
+    --stone-1: #F3F2EE; --stone-2: #F3F2EE; --panel: #FFFFFF; --panel-2: #F7F6F2;
+    --ink: #1B1A16; --ink-2: #45423A; --muted: #636158; --line: #E4E2DB; --line-2: #D3D0C7;
+    --yellow-soft: #FFF5D6; --yellow-wash: #FFF5D6; --gold: #7E5A00;
+    --shadow: none; --shadow-sm: none; --r: 14px;
+    --head: 'Bricolage Grotesque', system-ui, sans-serif;
+    --body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'Figtree', system-ui, sans-serif;
+  }
+  body { background: var(--stone-2); font-variant-numeric: tabular-nums; }
+  ::selection { background: #FFE07A; color: var(--ink); }
+  input { caret-color: var(--gold); }
+
+  /* dark top band: header + week bar */
+  .top { background: var(--ink-deep); color: #fff; padding: 16px 0 6px; }
+  .mark { box-shadow: none; font-family: var(--head); font-weight: 800; }
+  .brand h1 { font: 700 22px/1.1 var(--head); letter-spacing: -.02em; color: #fff; }
+  .who .name { color: var(--on-dark); }
+  .tag { font: 600 12px/1 var(--body); letter-spacing: 0; text-transform: none; background: rgba(252,187,2,.16); color: var(--yellow); }
+  .top .linkbtn { color: var(--on-dark-muted); }
+  .top .linkbtn:hover { color: #fff; }
+  .top :focus-visible, .bar :focus-visible { outline-color: var(--yellow); }
+  .bar { background: var(--ink-deep); backdrop-filter: none; -webkit-backdrop-filter: none; border-bottom: 0; padding: 8px 0 14px; }
+  .iconbtn { background: rgba(255,255,255,.08); border: 0; box-shadow: none; color: #fff; width: 44px; height: 44px; }
+  .iconbtn:hover { background: rgba(255,255,255,.14); color: #fff; }
+  .selectwrap select { background: rgba(255,255,255,.08); border: 0; box-shadow: none; color: #fff; height: 44px; font: 600 16px/1 var(--head); }
+  .selectwrap select option { color: var(--ink); background: #fff; }
+  .selectwrap::after { border-color: var(--yellow); }
+  .weekmeta { font: 500 12.5px/1.3 var(--body); color: var(--on-dark-muted); }
+  .weekmeta b { color: var(--yellow); font-weight: 600; }
+  .tabs { background: rgba(255,255,255,.08); }
+  .tabs button { color: var(--on-dark-muted); min-height: 38px; }
+  .tabs button:hover { color: #fff; }
+  .tabs button[aria-selected="true"] { background: var(--yellow); color: var(--ink-deep); box-shadow: none; }
+
+  main { padding-top: 26px; }
+
+  /* flat surfaces, sentence-case labels */
+  .panel { box-shadow: none; border: 1px solid var(--line); }
+  .label { font: 600 12.5px/1.3 var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
+  .btn { box-shadow: none; font-family: var(--body); font-weight: 700; min-height: 42px; }
+  .btn:hover { filter: none; background: #FFC933; }
+  .btn.ghost { background: var(--panel); border-color: var(--line-2); }
+  .btn.ghost:hover { background: var(--panel-2); border-color: #C7C3B8; }
+  .btn.small { min-height: 38px; }
+  .btn.danger { background: var(--panel); }
+  .btn.danger:hover { background: #FBEFEA; }
+  .chip { background: var(--panel-2); }
+  .chip.trend b { font: 700 12px/1 var(--body); letter-spacing: 0; text-transform: none; color: var(--gold); margin-right: 2px; }
+  .notice { background: var(--yellow-soft); border: 0; }
+  .filters button { background: var(--panel); border-color: var(--line); min-height: 40px; }
+  .filters button[aria-pressed="true"] { background: var(--ink-deep); border-color: var(--ink-deep); color: #fff; }
+  .filters button small { font: 600 12px/1 var(--body); color: inherit; opacity: .6; }
+  .filters button[aria-pressed="true"] small { color: var(--yellow); opacity: 1; }
+
+  /* scripts: fewer boxes */
+  .dayhead h2 { font: 700 24px/1.2 var(--head); letter-spacing: -.02em; }
+  .script { padding: 20px 22px 18px; gap: 10px; }
+  .script h3 { font: 600 19px/1.3 var(--head); letter-spacing: -.015em; }
+  .script .presenters { font-size: 13px; }
+  details.body > summary { font: 700 14px/1 var(--body); letter-spacing: 0; text-transform: none; color: var(--ink);
+    background: none; border: 0; border-radius: 8px; padding: 10px 0; min-height: 44px; }
+  details.body > summary:hover { border: 0; color: var(--gold); }
+  details.body > summary::before { border-color: var(--gold); }
+  details.body .sum-count { font-weight: 500; }
+  details.body .preview { margin-top: 0; }
+  .lines { border-left: 0; padding: 0; gap: 12px; }
+  .lines .mine { background: var(--yellow-soft); border-radius: 10px; padding: 10px 12px; color: var(--ink); }
+  .lines .spk { font: 700 12.5px/1.4 var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); margin-bottom: 2px; }
+  .lines .mine .spk { color: var(--gold); }
+  .caption { background: var(--panel-2); }
+  .copy { font: 700 13px/1 var(--body); letter-spacing: 0; text-transform: none; color: var(--gold); min-height: 32px; }
+
+  /* calendar */
+  .cday .dh strong { font: 700 19px/1.2 var(--head); }
+  .cday.today { outline: 2px solid var(--ink-deep); }
+  .block { border-color: var(--line-2); }
+  .block .who { font: 600 15px/1.3 var(--head); }
+  .block.taken { background: #ECEAE3; }
+  .block.mine { background: var(--yellow); box-shadow: none; }
+  .legend .l-taken::before { background: #ECEAE3; }
+
+  /* team */
+  .person h3 { font: 600 18px/1.2 var(--head); }
+  .dots .n { font: 700 17px/1.1 var(--head); }
+  .bookinglist h3 { font: 600 17px/1.2 var(--head); }
+  .bookinglist th { font: 600 12.5px/1 var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
+  .bookinglist td.mono { font: 400 13px/1.4 var(--body); }
+
+  /* gate + loading */
+  .gate h2 { font: 700 26px/1.2 var(--head); letter-spacing: -.02em; }
+  .signin input { border-color: var(--line-2); }
+  .signin input:focus { outline: 0; border-color: #E4AC27; box-shadow: 0 0 0 3px rgba(252,187,2,.35); }
+  .signin #code { font: 700 26px/1 ui-monospace, Menlo, monospace; letter-spacing: .3em; }
+  .loading { font: 600 14px/1 var(--body); letter-spacing: 0; text-transform: none; }
+
+  @media (max-width: 640px) {
+    .top { padding: 12px 0 4px; }
+    .bar { padding: 6px 0 12px; }
+    .tabs button { min-height: 40px; }
+  }
 </style>
 </head>
 <body>
@@ -540,9 +643,9 @@ function renderBar() {
   bar.innerHTML = `
     <div class="wrap">
       <div class="weekpick">
-        <button class="iconbtn" data-act="prev" aria-label="Previous week">‹</button>
+        <button class="iconbtn" data-act="prev" aria-label="Previous week"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
         <div class="selectwrap"><select id="weeksel" aria-label="Week">${opts}</select></div>
-        <button class="iconbtn" data-act="next" aria-label="Next week">›</button>
+        <button class="iconbtn" data-act="next" aria-label="Next week"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
         ${meta}
       </div>
       <div class="tabs" role="tablist">${tabs}</div>
@@ -685,7 +788,7 @@ function scriptCard(s, viewer, open) {
     </details>
     <div class="foot">
       ${s.lines.length ? `<button class="btn small" data-act="copyscript" data-i="${idx}">Copy script</button>` : ''}
-      ${s.docUrl ? `<a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc ↗</a>` : ''}
+      ${s.docUrl ? `<a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc</a>` : ''}
     </div>
   </article>`;
 }
@@ -767,8 +870,8 @@ function viewTeam() {
   const people = (S.boot.people || []).filter((p) => !p.isAdmin || d.bookings.some((b) => b.email === p.email));
   let html = `<div class="teamtools">
     <button class="btn ghost small" data-act="refresh">Refresh from Drive</button>
-    ${d.source.folderUrl ? `<a class="btn ghost small" href="${esc(d.source.folderUrl)}" target="_blank" rel="noopener">Open week folder ↗</a>` : ''}
-    ${S.boot.sheetUrl ? `<a class="btn ghost small" href="${esc(S.boot.sheetUrl)}" target="_blank" rel="noopener">Settings &amp; bookings sheet ↗</a>` : ''}
+    ${d.source.folderUrl ? `<a class="btn ghost small" href="${esc(d.source.folderUrl)}" target="_blank" rel="noopener">Open week folder</a>` : ''}
+    ${S.boot.sheetUrl ? `<a class="btn ghost small" href="${esc(S.boot.sheetUrl)}" target="_blank" rel="noopener">Settings &amp; bookings sheet</a>` : ''}
   </div>`;
   if (d.source.unmatched && d.source.unmatched.length) {
     html += `<div class="notice">These names are in the export but not on the People tab, so nobody sees their scripts: <b>${esc(d.source.unmatched.join(', '))}</b>.</div>`;
