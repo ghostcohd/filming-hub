@@ -560,8 +560,13 @@
   .signin #code { font: 700 26px/1 ui-monospace, Menlo, monospace; letter-spacing: .3em; }
   .loading { font: 600 14px/1 var(--body); letter-spacing: 0; text-transform: none; }
 
-  .btn.ghost.ticked, .btn.ticked { background: var(--ink-deep); color: #fff; border-color: var(--ink-deep); }
-  .btn.ghost.ticked:hover, .btn.ticked:hover { background: #2B2A22; border-color: #2B2A22; }
+  .filmbox { margin-left: auto; width: 42px; height: 42px; flex: none; border-radius: 10px; border: 2px solid var(--line-2); background: var(--panel); color: #C9C5BA; cursor: pointer; display: grid; place-items: center; padding: 0; }
+  .filmbox svg { width: 22px; height: 22px; }
+  .filmbox:hover { border-color: #3E9A4B; color: #3E9A4B; }
+  .filmbox.on { background: #3E9A4B; border-color: #3E9A4B; color: #fff; }
+  .filmbox.on:hover { background: #348541; border-color: #348541; color: #fff; }
+  .filmbox.busy { opacity: .5; }
+  .chip.done { background: #3E9A4B; color: #fff; }
   .script.filmed { background: var(--panel-2); }
   @media (max-width: 640px) {
     .top { padding: 12px 0 4px; }
@@ -584,7 +589,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202610282026'; // changes with every release; the page uses it to update itself
+const BUILD = '202610282030'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -1155,7 +1160,8 @@ function scriptBits(s, viewer) {
   const filmed = isFilmed(s);
   if (filmed) chips.unshift(`<span class="chip done">${ICON.check.replace('<svg', '<svg width="13" height="13"')}Filmed</span>`);
   const fbusy = S.pending === 'film|' + s.key;
-  const filmBtn = `<button class="btn ghost small ${filmed ? 'ticked' : ''}" data-act="filmed" data-i="${idx}" aria-pressed="${filmed}" ${fbusy ? 'disabled' : ''}>${ICON.check}${fbusy ? 'Saving…' : (filmed ? 'Filmed' : 'Mark filmed')}</button>`;
+  const filmLabel = filmed ? 'Filmed. Tap to undo' : 'Mark as filmed';
+  const filmBtn = `<button class="filmbox ${filmed ? 'on' : ''} ${fbusy ? 'busy' : ''}" data-act="filmed" data-i="${idx}" aria-pressed="${filmed}" aria-label="${filmLabel}" title="${filmLabel}" ${fbusy ? 'disabled' : ''}>${ICON.check}</button>`;
   const tpBtn = s.lines.length ? `<button class="btn small" data-act="prompter" data-i="${idx}">${ICON.prompter}Teleprompter</button>` : '';
   const copyBtn = s.lines.length ? `<button class="btn ghost small" data-act="copyscript" data-i="${idx}">Copy script</button>` : '';
   const docBtn = s.docUrl ? `<a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc</a>` : '';
