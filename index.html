@@ -220,6 +220,13 @@
   .person { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
   .person h3 { margin: 0; font: 600 18px/1.2 var(--head); }
   .person .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .person .personact { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+  .person .personact .btn.ghost { flex: 1; }
+  .removedlist { margin-top: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .removedlist h3 { margin: 0; font: 600 17px/1.2 var(--head); }
+  .removedlist p { margin: 0; font-size: 13.5px; }
+  .removedrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line); }
+  .removedrow > span { min-width: 0; overflow-wrap: anywhere; }
   .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .dots div { text-align: center; padding: 8px 2px 7px; border-radius: 9px; background: var(--panel-2); }
   .dots div.has { background: var(--yellow-soft); }
@@ -904,12 +911,28 @@ function viewTeam() {
     const booked = bk.length
       ? bk.map((b) => `<span class="chip ok">${esc(d.days.find((x) => x.date === b.date).dow)} ${esc(slotLabel(b.slot).toLowerCase())}${b.location ? ' · ' + esc(b.location.toLowerCase()) : ''}</span>`).join('')
       : (scripts.length ? '<span class="chip warn">No filming block booked</span>' : '<span class="chip">No bookings</span>');
+    const key = 'person|' + p.email;
+    const armed = S.armed === key, busy = S.pending === key;
+    const remove = p.isAdmin ? '' : `<button class="btn small danger ${armed ? 'armed' : ''}" data-act="removeperson" data-email="${esc(p.email)}" ${busy ? 'disabled' : ''}>${busy ? 'Removing…' : (armed ? 'Tap to remove' : 'Remove')}</button>`;
     return `<div class="panel person">
       <div class="row"><h3>${esc(p.name)}</h3><span class="label">${scripts.length} script${scripts.length === 1 ? '' : 's'}</span></div>
       <div class="booked">${booked}</div>
-      ${scripts.length ? `<button class="btn ghost small" data-act="seescripts" data-who="${esc(p.name)}">View scripts</button>` : ''}
+      <div class="personact">
+        ${scripts.length ? `<button class="btn ghost small" data-act="seescripts" data-who="${esc(p.name)}">View scripts</button>` : ''}
+        ${remove}
+      </div>
     </div>`;
   }).join('') + '</div>';
+
+  const gone = S.boot.removedPeople || [];
+  if (gone.length) {
+    html += `<div class="panel removedlist"><h3>Removed people</h3><p class="muted">They can’t sign in or see the hub. Their past bookings are kept.</p>` +
+      gone.map((p) => {
+        const busy = S.pending === 'person|' + p.email;
+        return `<div class="removedrow"><span><b>${esc(p.name)}</b> <span class="muted">${esc(p.email)}</span></span>
+          <button class="btn ghost small" data-act="restoreperson" data-email="${esc(p.email)}" ${busy ? 'disabled' : ''}>${busy ? 'Restoring…' : 'Restore'}</button></div>`;
+      }).join('') + `</div>`;
+  }
 
   const rows = d.bookings.slice().sort((a, b) => (a.date + a.slot < b.date + b.slot ? -1 : 1)).map((b) => {
     const day = d.days.find((x) => x.date === b.date);
@@ -947,6 +970,25 @@ async function cancel(date, slot) {
   catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t cancel that block.' }; }
   S.pending = '';
   afterAction(r);
+}
+
+async function setPersonActive(email, active) {
+  const key = 'person|' + email;
+  if (!active && S.armed !== key) {
+    S.armed = key; renderMain();
+    clearTimeout(S.armTimer);
+    S.armTimer = setTimeout(() => { if (S.armed === key) { S.armed = ''; renderMain(); } }, 4000);
+    return;
+  }
+  S.armed = ''; S.pending = key; renderMain();
+  let r;
+  try { r = await call('apiSetPersonActive', S.token, email, active); }
+  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t update that person.' }; }
+  S.pending = '';
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  if (r && r.ok) { S.boot.people = r.people; S.boot.removedPeople = r.removedPeople; }
+  renderMain();
+  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
 }
 
 async function setWeekHidden(hide) {
@@ -1009,6 +1051,8 @@ document.addEventListener('click', (e) => {
   else if (act === 'prev') setWeek(addDays(S.week, -7));
   else if (act === 'next') setWeek(addDays(S.week, 7));
   else if (act === 'who') { S.who = el.dataset.who; renderMain(); }
+  else if (act === 'removeperson') setPersonActive(el.dataset.email, false);
+  else if (act === 'restoreperson') setPersonActive(el.dataset.email, true);
   else if (act === 'seescripts') { S.who = el.dataset.who; S.tab = 'scripts'; store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0); }
   else if (act === 'book') { S.choosing = el.dataset.date + '|' + el.dataset.slot; S.armed = ''; renderMain(); }
   else if (act === 'bookwhere') book(el.dataset.date, el.dataset.slot, el.dataset.where);
