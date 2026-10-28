@@ -435,6 +435,32 @@
     .tpb.play .lbl { display: inline; }
   }
 
+  /* ---------- admin presenter view ---------- */
+  .pvbtn { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #fff; font: 700 13.5px/1 var(--body); cursor: pointer; white-space: nowrap; }
+  .pvbtn:hover { background: rgba(255,255,255,.12); }
+  .pvbtn svg { width: 17px; height: 17px; flex: none; }
+  .pvbar { background: var(--yellow); color: var(--ink-deep); }
+  .pvbar .wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 9px; padding-bottom: 9px; }
+  .pvbar .txt { flex: 1; min-width: 200px; font-size: 14px; }
+  .pvbar .txt b { font-weight: 700; }
+  .pvbar .btn { background: var(--ink-deep); color: #fff; min-height: 36px; }
+  .pvbar .btn:hover { background: #2B2A22; }
+  .pvbar .btn.ghost { background: transparent; color: var(--ink-deep); border-color: rgba(22,21,15,.35); }
+  .pvlist { display: flex; flex-direction: column; gap: 8px; padding: 6px 22px 22px; }
+  .pvlist button { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel); cursor: pointer; font: 700 16px/1.2 var(--body); text-align: left; }
+  .pvlist button:hover { border-color: var(--gold); background: var(--yellow-wash); }
+  .pvlist button span { font-weight: 500; font-size: 13px; color: var(--muted); }
+  dialog.pop.small { width: min(440px, calc(100vw - 32px)); }
+  .pvhead { padding: 20px 22px 8px; display: flex; align-items: flex-start; gap: 12px; }
+  .pvhead .t { flex: 1; }
+  .pvhead h3 { margin: 0 0 4px; font: 700 21px/1.25 var(--head); }
+  .pvhead p { margin: 0; color: var(--muted); font-size: 14px; }
+  @media (max-width: 640px) {
+    .pvbtn { padding: 0 11px; }
+    .pvbtn .lbl { display: none; }
+    dialog.pop.small { margin: auto 0 0; }
+  }
+
   /* ================= FTA Content Studio look (28 Oct) ================= */
   :root {
     --ink-deep: #16150F; --on-dark: #F4F1E8; --on-dark-muted: #A9A496;
@@ -542,12 +568,14 @@
     <div class="who" id="who"></div>
   </div>
 </header>
+<div class="pvbar" id="pvbar" hidden></div>
 <div class="bar" id="bar" hidden></div>
 <main><div class="wrap" id="main"><div class="loading"><span class="spinner"></span>Loading</div></div></main>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const BOOT = { token: '' };
+const BUILD = '202610282023'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -572,6 +600,7 @@ const ICON = {
   close: svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.6),
   restart: svg('<path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.8L3 8"/><path d="M3 3v5h5"/>'),
   mirror: svg('<path d="M12 3v18M8 7l-5 5 5 5M16 7l5 5-5 5"/>'),
+  eye: svg('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>'),
 };
 
 const CALL_TIMEOUT_MS = 30000; // Apps Script can take 5–10 s when it's cold; past 30 s, signal is the problem
@@ -653,12 +682,34 @@ async function start() {
   loadWeek(false);
   if (S.started) return;
   S.started = true;
+  checkForUpdate();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && S.data) loadWeek(false, true);
+    if (document.visibilityState === 'visible') checkForUpdate();
   });
   setInterval(() => {
     if (document.visibilityState === 'visible' && S.tab === 'calendar' && S.data && !S.pending) loadWeek(false, true);
   }, 90000);
+}
+
+/**
+ * Phones and browsers can keep showing an old copy of this page. Every so often, ask GitHub for
+ * the current copy; if it's newer, quietly switch to it (never while someone is mid-way through something).
+ */
+async function checkForUpdate() {
+  const last = Number(S.updCheck || 0);
+  if (Date.now() - last < 4 * 60000) return;
+  S.updCheck = Date.now();
+  let txt = '';
+  try { txt = await fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store', credentials: 'omit' }).then((r) => (r.ok ? r.text() : '')); } catch (e) { return; }
+  const m = /const BUILD = '(\d+)'/.exec(txt);
+  if (!m || m[1] <= BUILD) return;
+  let tried = ''; try { tried = sessionStorage.getItem('fth.updTried') || ''; } catch (e) {}
+  if (tried === m[1]) return; // already tried this one; don't loop
+  const busy = S.pending || S.fbEdit || S.remind || S.choosing || document.querySelector('dialog[open]');
+  if (busy) { S.updCheck = Date.now() - 3 * 60000; return; } // try again in a minute
+  try { sessionStorage.setItem('fth.updTried', m[1]); } catch (e) {}
+  location.replace(location.pathname + '?v=' + m[1]);
 }
 
 function tabList() {
@@ -671,7 +722,7 @@ async function loadWeek(force, quiet) {
   const id = ++S.req;
   if (!quiet) { S.loading = true; renderMain(); }
   let r;
-  try { r = await call('apiGetWeek', S.token, S.week, !!force); }
+  try { r = await call('apiGetWeek', S.token, S.week, !!force, S.realMe ? S.me.email : ''); }
   catch (e) { r = { ok: false, code: 'ERROR', message: (e && e.message) || 'Couldn’t reach the hub.' }; }
   if (id !== S.req) return;
   S.loading = false;
@@ -789,11 +840,67 @@ async function verifyCode(email) {
 /* ---------- header + bar ---------- */
 function renderWho() {
   const showSignOut = !!S.token;
+  const admin = S.realMe || (S.me.isAdmin ? S.me : null);
   $('#who').innerHTML = `
-    <span class="name">${esc(S.me.name)}</span>
-    ${S.me.isAdmin ? '<span class="tag">Admin</span>' : ''}
+    ${admin ? `<button class="pvbtn" data-act="pvopen" aria-label="Presenter view">${ICON.eye}<span class="lbl">${S.realMe ? 'Switch presenter' : 'Presenter view'}</span></button>` : ''}
+    <span class="name">${esc((S.realMe || S.me).name)}</span>
+    ${admin ? '<span class="tag">Admin</span>' : ''}
     ${showSignOut ? '<button class="linkbtn" data-act="signout">Sign out</button>' : ''}`;
+  renderPvBar();
 }
+
+/* ---------- admin: presenter view (look-only) ---------- */
+function renderPvBar() {
+  const bar = $('#pvbar');
+  if (!S.realMe) { bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  bar.innerHTML = `<div class="wrap">
+    <span class="txt">${ICON.eye.replace('<svg', '<svg width="16" height="16" style="vertical-align:-3px;margin-right:6px"')}<b>Presenter view:</b> you’re seeing exactly what <b>${esc(S.me.name)}</b> sees. Look-only, nothing you tap is saved.</span>
+    <button class="btn small ghost" data-act="pvopen">Switch</button>
+    <button class="btn small" data-act="pvexit">Exit presenter view</button>
+  </div>`;
+}
+function openPvPicker() {
+  const people = ((S.realMe ? S.realBoot : S.boot).people || []).filter((p) => !p.isAdmin);
+  let d = document.getElementById('pvpick');
+  if (!d) {
+    d = document.createElement('dialog');
+    d.id = 'pvpick'; d.className = 'pop small';
+    d.setAttribute('aria-labelledby', 'pv-title');
+    d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+    wireModal(d);
+    document.body.appendChild(d);
+  }
+  d.innerHTML = `
+    <div class="pvhead"><div class="t"><h3 id="pv-title">See the hub as…</h3><p>Pick a presenter to see exactly what they see. Nothing changes for them.</p></div>
+      <button class="pop-close" data-act="pvclose" aria-label="Close">&times;</button></div>
+    <div class="pvlist">${people.map((p) => `<button data-act="pvas" data-email="${esc(p.email)}">${esc(p.name)}${S.realMe && S.me.email === p.email ? '<span>Viewing now</span>' : ''}</button>`).join('') || '<p class="muted">Nobody on the People tab yet.</p>'}</div>`;
+  openModal(d);
+}
+function enterPresenterView(email) {
+  const base = S.realBoot || S.boot;
+  const p = (base.people || []).find((x) => x.email === email);
+  if (!p) return;
+  if (!S.realMe) { S.realMe = S.me; S.realBoot = S.boot; S.realTab = S.tab; S.realWho = S.who; }
+  S.me = { name: p.name, email: p.email, isAdmin: false };
+  // What a presenter's start-up data looks like: no people list, no sheet, no removed weeks.
+  S.boot = Object.assign({}, base, { people: undefined, removedPeople: undefined, removedWeeks: undefined, sheetUrl: undefined, user: S.me });
+  S.tab = S.tab === 'calendar' ? 'calendar' : 'scripts'; S.who = 'all'; S.fbEdit = null; S.choosing = ''; S.armed = ''; S.remind = null;
+  S.data = null;
+  renderWho(); renderBar(); loadWeek(false);
+  window.scrollTo(0, 0);
+}
+function exitPresenterView() {
+  if (!S.realMe) return;
+  S.me = S.realMe; S.boot = S.realBoot; S.tab = S.realTab || 'scripts'; S.who = S.realWho || 'all';
+  S.realMe = null; S.realBoot = null; S.fbEdit = null; S.choosing = ''; S.armed = '';
+  S.data = null;
+  ['scriptpop', 'prompter'].forEach((id) => { const d = document.getElementById(id); if (d && d.open) d.close(); });
+  renderWho(); renderBar(); loadWeek(false);
+  window.scrollTo(0, 0);
+}
+// Things that would save something. In presenter view they're shown but do nothing.
+const PV_BLOCKED = ['book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
 
 function weekOptions() {
   const set = new Map();
@@ -1609,7 +1716,15 @@ document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
-  if (act === 'tab') { const pd = document.getElementById('scriptpop'); if (pd && pd.open) pd.close(); S.tab = el.dataset.tab; store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0); }
+  if (S.realMe && PV_BLOCKED.indexOf(act) >= 0) {
+    toast('Presenter view is look-only. Exit it to make changes.');
+    return;
+  }
+  if (act === 'pvopen') { openPvPicker(); return; }
+  if (act === 'pvclose') { const d = document.getElementById('pvpick'); if (d) d.close(); return; }
+  if (act === 'pvas') { const d = document.getElementById('pvpick'); if (d) d.close(); enterPresenterView(el.dataset.email); return; }
+  if (act === 'pvexit') { exitPresenterView(); return; }
+  if (act === 'tab') { const pd = document.getElementById('scriptpop'); if (pd && pd.open) pd.close(); S.tab = el.dataset.tab; if (!S.realMe) store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0); }
   else if (act === 'prev') setWeek(addDays(S.week, -7));
   else if (act === 'next') setWeek(addDays(S.week, 7));
   else if (act === 'who') { S.who = el.dataset.who; renderMain(); }
@@ -1666,7 +1781,7 @@ document.addEventListener('click', (e) => {
   else if (act === 'removeweek') setWeekHidden(true, el.dataset.week);
   else if (act === 'restoreweek') setWeekHidden(false, el.dataset.week);
   else if (act === 'reload') loadWeek(false);
-  else if (act === 'signout') { store.set('fth.token', null); S.token = ''; S.data = null; signinForm(''); }
+  else if (act === 'signout') { if (S.realMe) { S.me = S.realMe; S.boot = S.realBoot; S.realMe = null; renderPvBar(); } store.set('fth.token', null); S.token = ''; S.data = null; signinForm(''); }
   else if (act === 'signin-back') { store.set('fth.codeAt', null); signinForm(''); }
   else if (act === 'signin-have') {
     const em = ($('#email') && $('#email').value.trim().toLowerCase()) || '';
@@ -1678,7 +1793,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('popstate', () => {
   if (S.selfBack) { S.selfBack = false; return; }
   const lvl = (history.state && history.state.pop) || 0;
-  ['prompter', 'scriptpop'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
+  ['prompter', 'scriptpop', 'pvpick'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
 });
 document.addEventListener('input', (e) => {
   if (e.target && e.target.dataset && e.target.dataset.fbnote !== undefined && S.fbEdit && S.fbEdit.key === e.target.dataset.fbnote) { S.fbEdit.note = e.target.value; return; }
