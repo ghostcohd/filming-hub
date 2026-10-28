@@ -64,7 +64,7 @@
     font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
     color: var(--gold); background: var(--yellow-soft); border-radius: 999px; padding: 5px 8px; white-space: nowrap;
   }
-  .linkbtn { background: none; border: 0; padding: 6px 4px; color: var(--muted); cursor: pointer; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+  .linkbtn { background: none; border: 0; padding: 6px 4px; min-height: 40px; color: var(--muted); cursor: pointer; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
   .linkbtn:hover { color: var(--ink); }
 
   /* ---------- Week bar + tabs ---------- */
@@ -178,7 +178,8 @@
   .pop-foot { display: flex; gap: 8px; flex-wrap: wrap; padding: 14px 22px 18px; border-top: 1px solid var(--line); }
   body.popping { overflow: hidden; }
   @media (max-width: 640px) {
-    dialog.pop { width: 100vw; max-width: 100vw; max-height: 92vh; margin: auto 0 0; border-radius: 18px 18px 0 0; }
+    dialog.pop { width: 100vw; max-width: 100vw; max-height: 92vh; max-height: 92dvh; margin: auto 0 0; border-radius: 18px 18px 0 0; }
+    .pop-foot { padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
     .pop-head, .pop-body, .pop-foot { padding-left: 16px; padding-right: 16px; }
   }
   @media (prefers-reduced-motion: reduce) { dialog.pop[open] { animation: none; } }
@@ -464,8 +465,11 @@ const store = {
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const CALL_TIMEOUT_MS = 30000; // Apps Script can take 5–10 s when it's cold; past 30 s, signal is the problem
 async function call(fn, ...args) {
-  let res;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), CALL_TIMEOUT_MS) : null;
+  let res, text;
   try {
     res = await fetch(API_URL, {
       method: 'POST',
@@ -473,17 +477,25 @@ async function call(fn, ...args) {
       body: JSON.stringify({ fn, args }),
       credentials: 'omit',
       redirect: 'follow',
+      signal: ctrl ? ctrl.signal : undefined,
     });
+    text = await res.text();
   } catch (e) {
-    throw new Error('Couldn’t reach the hub. Check your connection and try again.');
+    const err = new Error(e && e.name === 'AbortError'
+      ? 'The hub is taking too long to answer. Check your signal and try again.'
+      : 'Couldn’t reach the hub. Check your connection and try again.');
+    err.network = true;
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  const text = await res.text();
   try { return JSON.parse(text); }
-  catch (e) { throw new Error('The hub sent back something unexpected. Try again in a minute.'); }
+  catch (e) { const err = new Error('The hub sent back something unexpected. Try again in a minute.'); err.network = true; throw err; }
 }
 function utc(iso) { const p = iso.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
 function addDays(iso, n) { const d = utc(iso); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 function weekLabel(iso) { const d = utc(iso); return 'w/c ' + d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
+function shortWeek(label) { return String(label).replace(' ' + new Date().getFullYear(), ''); }
 function firstName(n) { return String(n || '').trim().split(/\s+/)[0]; }
 function nameKey(n) { return String(n || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 function shortTime(iso) {
@@ -499,7 +511,7 @@ function toast(msg, isErr) {
   t.textContent = msg;
   t.className = 'toast show' + (isErr ? ' err' : '');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.className = 'toast' + (isErr ? ' err' : ''); }, 3200);
+  toastTimer = setTimeout(() => { t.className = 'toast' + (isErr ? ' err' : ''); }, Math.max(3200, String(msg).length * 70));
 }
 
 /* ---------- state ---------- */
@@ -572,7 +584,11 @@ function gate(r) {
   if (r.code === 'SIGNIN' || r.code === 'DENIED') {
     store.set('fth.token', null);
     S.token = '';
-    return signinForm(r.code === 'DENIED' ? `<b>${esc(r.email)}</b> isn’t on the list any more. Ask Zach if that looks wrong.` : '');
+    if (r.code === 'DENIED') return signinForm(`<b>${esc(r.email)}</b> isn’t on the list any more. Ask Zach if that looks wrong.`);
+    // Phones often reload the tab while you're in Mail getting the code: put you back on the code step.
+    const sentAt = Number(store.get('fth.codeAt') || 0);
+    if (sentAt && Date.now() - sentAt < 15 * 60000 && store.get('fth.email')) return signinForm('', 'code', store.get('fth.email'));
+    return signinForm('');
   } else {
     title = 'Something went wrong';
     body = esc(r.message || 'The hub didn’t respond. Try reloading.');
@@ -605,7 +621,7 @@ function signinForm(note, step, email) {
       <form id="signin" class="signin" novalidate>
         ${codeStep
           ? `<label for="code" class="label">Code</label>
-             <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+             <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="••••••" required>
              <button class="btn" type="submit" id="signin-go">Sign in</button>
              <button class="linkbtn" type="button" data-act="signin-back">Use a different email or send a new code</button>`
           : `<label for="email" class="label">Email</label>
@@ -617,6 +633,9 @@ function signinForm(note, step, email) {
     </div>`;
   const input = $(codeStep ? '#code' : '#email');
   try { input.focus(); } catch (e) {}
+  if (codeStep) input.addEventListener('input', () => {
+    if (input.value.replace(/\D/g, '').length === 6 && !$('#signin-go').disabled) verifyCode(saved);
+  });
   $('#signin').addEventListener('submit', (e) => { e.preventDefault(); codeStep ? verifyCode(saved) : requestCode(); });
 }
 
@@ -637,6 +656,7 @@ async function requestCode() {
   catch (e) { r = { ok: false, message: 'Couldn’t reach the hub. Check your connection and try again.' }; }
   if (!r.ok) { btn.disabled = false; btn.textContent = 'Email me a code'; return signinNote(r.message); }
   store.set('fth.email', email);
+  store.set('fth.codeAt', String(Date.now()));
   signinForm('', 'code', email);
 }
 
@@ -650,6 +670,7 @@ async function verifyCode(email) {
   catch (e) { r = { ok: false, message: 'Couldn’t reach the hub. Check your connection and try again.' }; }
   if (!r.ok) { btn.disabled = false; btn.textContent = 'Sign in'; return signinNote(r.message); }
   store.set('fth.token', r.token);
+  store.set('fth.codeAt', null);
   S.token = r.token;
   $('#main').innerHTML = '<div class="loading"><span class="spinner"></span>Loading</div>';
   start();
@@ -677,7 +698,7 @@ function renderBar() {
   const opts = weekOptions().map(([w, label]) => {
     const tagged = (w === S.boot.currentWeek ? ' · this week' : (w === addDays(S.boot.currentWeek, 7) ? ' · next week' : ''))
 
-    return `<option value="${w}" ${w === S.week ? 'selected' : ''}>${esc(label + tagged)}</option>`;
+    return `<option value="${w}" ${w === S.week ? 'selected' : ''}>${esc(shortWeek(label) + tagged)}</option>`;
   }).join('');
   let meta = '';
   if (S.data && S.data.week === S.week && S.data.source.found) {
@@ -851,7 +872,10 @@ function openScript(i) {
     d.id = 'scriptpop'; d.className = 'pop';
     d.setAttribute('aria-labelledby', 'pop-title');
     d.addEventListener('click', (e) => { if (e.target === d) d.close(); }); // click the dim backdrop
-    d.addEventListener('close', () => document.body.classList.remove('popping'));
+    d.addEventListener('close', () => {
+      document.body.classList.remove('popping');
+      if (history.state && history.state.pop) { S.selfBack = true; try { history.back(); } catch (e) { S.selfBack = false; } }
+    });
     document.body.appendChild(d);
   }
   d.innerHTML = `
@@ -869,7 +893,9 @@ function openScript(i) {
     </div>
     ${b.actions.trim() ? `<div class="pop-foot">${b.actions}</div>` : ''}`;
   document.body.classList.add('popping');
+  const wasOpen = d.open;
   if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute('open', '');
+  if (!wasOpen) { try { history.pushState({ pop: 1 }, ''); } catch (e) {} }
   d.querySelector('.pop-body').scrollTop = 0;
   d.querySelector('.pop-close').focus();
 }
@@ -1109,7 +1135,7 @@ async function book(date, slot, where) {
   S.pending = key; renderMain();
   let r;
   try { r = await call('apiBook', S.token, date, slot, S.me.isAdmin ? S.bookAs : null, where); }
-  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t book that block.' }; }
+  catch (e) { r = { ok: false, network: true, message: (e && e.message) || 'Couldn’t book that block.' }; }
   S.pending = '';
   afterAction(r);
 }
@@ -1125,7 +1151,7 @@ async function cancel(date, slot) {
   S.armed = ''; S.pending = key; renderMain();
   let r;
   try { r = await call('apiCancel', S.token, date, slot); }
-  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t cancel that block.' }; }
+  catch (e) { r = { ok: false, network: true, message: (e && e.message) || 'Couldn’t cancel that block.' }; }
   S.pending = '';
   afterAction(r);
 }
@@ -1181,6 +1207,8 @@ function afterAction(r) {
   if (r && r.bookings && S.data) S.data.bookings = r.bookings;
   renderMain();
   toast((r && r.message) || (r && r.ok ? 'Done' : 'Something went wrong'), !(r && r.ok));
+  // The request may have reached the hub even though the answer didn't reach us. Check, quietly.
+  if (r && r.network) setTimeout(() => { if (S.data && !S.pending) loadWeek(false, true); }, 1500);
 }
 
 /** Just the spoken lines, ready for a teleprompter. Two-handers keep who says what. */
@@ -1232,13 +1260,18 @@ document.addEventListener('click', (e) => {
   else if (act === 'restoreweek') setWeekHidden(false, el.dataset.week);
   else if (act === 'reload') loadWeek(false);
   else if (act === 'signout') { store.set('fth.token', null); S.token = ''; S.data = null; signinForm(''); }
-  else if (act === 'signin-back') signinForm('');
+  else if (act === 'signin-back') { store.set('fth.codeAt', null); signinForm(''); }
   else if (act === 'signin-have') {
     const em = ($('#email') && $('#email').value.trim().toLowerCase()) || '';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) signinNote('Enter your email first, then use the code from your email.');
     else { store.set('fth.email', em); signinForm('', 'code', em); }
   }
   else if (act === 'restart') { $('#main').innerHTML = '<div class="loading"><span class="spinner"></span>Loading</div>'; start(); }
+});
+window.addEventListener('popstate', () => {
+  if (S.selfBack) { S.selfBack = false; return; }
+  const d = document.getElementById('scriptpop');
+  if (d && d.open) d.close();
 });
 document.addEventListener('input', (e) => {
   if (!S.remind || !e.target) return;
