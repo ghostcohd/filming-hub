@@ -643,9 +643,8 @@ function renderBar() {
   const bar = $('#bar');
   bar.hidden = false;
   const opts = weekOptions().map(([w, label]) => {
-    const info = (S.boot.weeks || []).find((x) => x.week === w);
     const tagged = (w === S.boot.currentWeek ? ' · this week' : (w === addDays(S.boot.currentWeek, 7) ? ' · next week' : ''))
-      + (info && info.hidden ? ' · removed' : '');
+
     return `<option value="${w}" ${w === S.week ? 'selected' : ''}>${esc(label + tagged)}</option>`;
   }).join('');
   let meta = '';
@@ -707,19 +706,19 @@ function viewScripts() {
   const d = S.data;
   const src = d.source;
   let html = '';
+  if (!src.found && S.me.isAdmin && src.hidden) {
+    return `<div class="panel empty"><h2>${esc(d.label)} has been removed</h2><p>Nobody can see this week’s scripts. Nothing was deleted from Drive. You can bring it back from <b>Removed weeks</b> on the Team tab.</p>
+      <p style="margin-top:16px"><button class="btn" data-act="restoreweek" data-week="${esc(d.week)}" ${S.pending === 'week|' + d.week ? 'disabled' : ''}>${S.pending === 'week|' + d.week ? 'Restoring…' : 'Restore this week'}</button></p></div>`;
+  }
   if (!src.found) {
     return `<div class="panel empty"><h2>No scripts for ${esc(d.label)} yet</h2><p>They’ll appear here as soon as the Script Maker exports this week. You can still book filming blocks in the calendar.</p></div>`;
   }
   if (src.problem) html += `<div class="notice">${esc(src.problem)}</div>`;
   if (S.me.isAdmin) {
-    if (src.hidden) {
-      html += `<div class="notice weeknote removed"><span><b>Removed from the hub.</b> Presenters can’t see ${esc(d.label)}’s scripts. Nothing was deleted from Drive.</span>
-        <button class="btn small" data-act="restoreweek" ${S.pending === 'week' ? 'disabled' : ''}>${S.pending === 'week' ? 'Restoring…' : 'Restore this week'}</button></div>`;
-    } else {
-      const armed = S.armed === 'week';
-      html += `<div class="weektools"><button class="btn small danger ${armed ? 'armed' : ''}" data-act="removeweek" ${S.pending === 'week' ? 'disabled' : ''}>
-        ${S.pending === 'week' ? 'Removing…' : (armed ? 'Tap again to remove ' + esc(d.label) : 'Remove this week’s scripts')}</button></div>`;
-    }
+    const key = 'week|' + d.week;
+    const armed = S.armed === key, busy = S.pending === key;
+    html += `<div class="weektools"><button class="btn small danger ${armed ? 'armed' : ''}" data-act="removeweek" data-week="${esc(d.week)}" ${busy ? 'disabled' : ''}>
+      ${busy ? 'Removing…' : (armed ? 'Tap again to remove ' + esc(d.label) : 'Remove this week’s scripts')}</button></div>`;
   }
 
   let list = d.scripts;
@@ -924,6 +923,16 @@ function viewTeam() {
     </div>`;
   }).join('') + '</div>';
 
+  const goneWeeks = S.boot.removedWeeks || [];
+  if (goneWeeks.length) {
+    html += `<div class="panel removedlist"><h3>Removed weeks</h3><p class="muted">Their scripts are hidden from everyone and out of the week list. Nothing was deleted from Drive.</p>` +
+      goneWeeks.map((w) => {
+        const busy = S.pending === 'week|' + w.week;
+        return `<div class="removedrow"><span><b>${esc(w.label)}</b></span>
+          <button class="btn ghost small" data-act="restoreweek" data-week="${esc(w.week)}" ${busy ? 'disabled' : ''}>${busy ? 'Restoring…' : 'Restore'}</button></div>`;
+      }).join('') + `</div>`;
+  }
+
   const gone = S.boot.removedPeople || [];
   if (gone.length) {
     html += `<div class="panel removedlist"><h3>Removed people</h3><p class="muted">They can’t sign in or see the hub. Their past bookings are kept.</p>` +
@@ -991,28 +1000,31 @@ async function setPersonActive(email, active) {
   toast((r && r.message) || 'Something went wrong', !(r && r.ok));
 }
 
-async function setWeekHidden(hide) {
-  if (hide && S.armed !== 'week') {
-    S.armed = 'week'; renderMain();
+async function setWeekHidden(hide, week) {
+  week = week || S.week;
+  const key = 'week|' + week;
+  if (hide && S.armed !== key) {
+    S.armed = key; renderMain();
     clearTimeout(S.armTimer);
-    S.armTimer = setTimeout(() => { if (S.armed === 'week') { S.armed = ''; renderMain(); } }, 4000);
+    S.armTimer = setTimeout(() => { if (S.armed === key) { S.armed = ''; renderMain(); } }, 4000);
     return;
   }
-  S.armed = ''; S.pending = 'week'; renderMain();
-  const week = S.week;
+  S.armed = ''; S.pending = key; renderMain();
   let r;
   try { r = await call('apiSetWeekHidden', S.token, week, hide); }
   catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t update that week.' }; }
   S.pending = '';
   if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
   if (r && r.ok) {
-    const w = (S.boot.weeks || []).find((x) => x.week === week);
-    if (w) w.hidden = !!hide;
-    if (S.data && S.data.week === week) S.data.source.hidden = !!hide;
-    renderBar();
+    S.boot.weeks = r.weeks; S.boot.removedWeeks = r.removedWeeks;
+    toast(r.message);
+    if (hide && S.week === week) { S.week = ''; return setWeek(S.boot.defaultWeek === week ? S.boot.currentWeek : S.boot.defaultWeek); }
+    if (S.week === week) return loadWeek(false, true).then(renderBar);
+    renderBar(); renderMain();
+    return;
   }
   renderMain();
-  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+  toast((r && r.message) || 'Something went wrong', true);
 }
 
 function afterAction(r) {
@@ -1062,8 +1074,8 @@ document.addEventListener('click', (e) => {
   else if (act === 'copyscript') { const s = S.data.scripts[Number(el.dataset.i)]; if (s) copyText(teleprompterText(s), 'Script'); }
   else if (act === 'refresh') loadWeek(true);
   else if (act === 'thisweek') setWeek(S.boot.currentWeek);
-  else if (act === 'removeweek') setWeekHidden(true);
-  else if (act === 'restoreweek') setWeekHidden(false);
+  else if (act === 'removeweek') setWeekHidden(true, el.dataset.week);
+  else if (act === 'restoreweek') setWeekHidden(false, el.dataset.week);
   else if (act === 'reload') loadWeek(false);
   else if (act === 'signout') { store.set('fth.token', null); S.token = ''; S.data = null; signinForm(''); }
   else if (act === 'signin-back') signinForm('');
