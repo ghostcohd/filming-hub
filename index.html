@@ -222,6 +222,24 @@
   .person .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .person .personact { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
   .person .personact .btn.ghost { flex: 1; }
+  .remind { padding: 18px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .remindhead { display: flex; flex-direction: column; gap: 2px; }
+  .remindhead h3 { margin: 0; font: 600 18px/1.2 var(--head); }
+  .remindhead .muted { font-size: 13.5px; }
+  .remindto { border: 0; margin: 0 0 6px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; }
+  .remindto legend { margin-bottom: 6px; padding: 0; }
+  .remindall { grid-column: 1 / -1; display: flex; gap: 10px; }
+  .remindall .linkbtn { padding: 2px 0; }
+  .tick { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; background: var(--panel); min-width: 0; }
+  .tick input { width: 18px; height: 18px; accent-color: var(--gold); flex: none; }
+  .tick span:first-of-type { font-weight: 600; flex: 1; min-width: 0; }
+  .tick .muted { font-size: 12.5px; white-space: nowrap; }
+  .remindinput { width: 100%; min-width: 0; border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 12px; background: #fff; color: var(--ink); font: inherit; }
+  textarea.remindinput { resize: vertical; line-height: 1.5; min-height: 220px; }
+  .remindinput:focus { outline: 2px solid var(--yellow); border-color: var(--yellow); }
+  .remindfoot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  .remindfoot .muted { font-size: 13px; }
+  .remindfoot .btn.armed { background: var(--ink); color: #fff; }
   .removedlist { margin-top: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
   .removedlist h3 { margin: 0; font: 600 17px/1.2 var(--head); }
   .removedlist p { margin: 0; font-size: 13.5px; }
@@ -891,14 +909,93 @@ function viewCalendar() {
 }
 
 /* ---------- team (admin) ---------- */
+/* ---------- reminder email (admin) ---------- */
+function reminderDraft(label) {
+  return {
+    subject: `Book your filming for ${label}`,
+    message: `Hi {name},
+
+Your scripts for ${label} are ready on the Filming Hub.
+
+Before the week starts, please:
+• Read through your scripts and let me know which ones you’re happy with.
+• If you’d like changes to any, or want to scrap any, reply to this email and tell me which.
+• Book your filming in the Calendar: pick a morning or afternoon, then In or Out.
+
+Thanks,
+Zach`,
+  };
+}
+
+function openReminder() {
+  const people = (S.boot.people || []).filter((p) => !p.isAdmin);
+  S.remind = Object.assign({ to: {}, edited: false, week: S.week }, reminderDraft(S.data.label));
+  people.forEach((p) => { S.remind.to[p.email] = true; });
+}
+
+function viewReminder() {
+  const r = S.remind;
+  const d = S.data;
+  if (!r.edited && r.week !== S.week) Object.assign(r, reminderDraft(d.label), { week: S.week });
+  const people = (S.boot.people || []).filter((p) => !p.isAdmin);
+  const chosen = people.filter((p) => r.to[p.email]);
+  const busy = S.pending === 'remind', armed = S.armed === 'remind';
+  return `<div class="panel remind">
+    <div class="remindhead"><h3>Send a reminder</h3><span class="muted">${esc(d.label)} · each person gets their own email with a link to the hub</span></div>
+    <fieldset class="remindto"><legend class="label">Send to</legend>
+      <div class="remindall">
+        <button class="linkbtn" data-act="remindall">Tick all</button>
+        <button class="linkbtn" data-act="remindnone">Untick all</button>
+      </div>
+      ${people.map((p, i) => {
+        const n = scriptsFor(p.name).length;
+        return `<label class="tick"><input type="checkbox" id="remind-${i}" data-remind="${esc(p.email)}" ${r.to[p.email] ? 'checked' : ''}>
+          <span>${esc(p.name)}</span><span class="muted">${n} script${n === 1 ? '' : 's'}</span></label>`;
+      }).join('')}
+    </fieldset>
+    <label class="label" for="remind-subject">Subject</label>
+    <input id="remind-subject" class="remindinput" value="${esc(r.subject)}" maxlength="200">
+    <label class="label" for="remind-message">Message <span class="muted">· {name} becomes their first name</span></label>
+    <textarea id="remind-message" class="remindinput" rows="12" maxlength="5000">${esc(r.message)}</textarea>
+    <div class="remindfoot">
+      <span class="muted">Replies go to zach.bunyan@fta.media</span>
+      <button class="btn ${armed ? 'armed' : ''}" data-act="remindsend" ${busy || !chosen.length ? 'disabled' : ''}>
+        ${busy ? 'Sending…' : (armed ? `Tap to send to ${chosen.length}` : `Send to ${chosen.length} ${chosen.length === 1 ? 'person' : 'people'}`)}</button>
+    </div>
+  </div>`;
+}
+
+async function sendReminder() {
+  const r = S.remind;
+  const emails = Object.keys(r.to).filter((e) => r.to[e]);
+  if (!emails.length) return toast('Tick at least one person', true);
+  if (S.armed !== 'remind') {
+    S.armed = 'remind'; renderMain();
+    clearTimeout(S.armTimer);
+    S.armTimer = setTimeout(() => { if (S.armed === 'remind') { S.armed = ''; renderMain(); } }, 4000);
+    return;
+  }
+  S.armed = ''; S.pending = 'remind'; renderMain();
+  let res;
+  try { res = await call('apiSendReminder', S.token, emails, r.subject, r.message, S.week); }
+  catch (e) { res = { ok: false, message: (e && e.message) || 'Couldn’t send the emails.' }; }
+  S.pending = '';
+  if (res && (res.code === 'SIGNIN' || res.code === 'DENIED')) return gate(res);
+  if (res && res.ok) S.remind = null;
+  renderMain();
+  toast((res && res.message) || 'Something went wrong', !(res && res.ok));
+}
+
 function viewTeam() {
   const d = S.data;
   const people = (S.boot.people || []).filter((p) => !p.isAdmin || d.bookings.some((b) => b.email === p.email));
   let html = `<div class="teamtools">
+    <button class="btn small" data-act="remindopen" aria-expanded="${!!S.remind}">${S.remind ? 'Close reminder' : 'Send reminder'}</button>
     <button class="btn ghost small" data-act="refresh">Refresh from Drive</button>
     ${d.source.folderUrl ? `<a class="btn ghost small" href="${esc(d.source.folderUrl)}" target="_blank" rel="noopener">Open week folder</a>` : ''}
     ${S.boot.sheetUrl ? `<a class="btn ghost small" href="${esc(S.boot.sheetUrl)}" target="_blank" rel="noopener">Settings &amp; bookings sheet</a>` : ''}
   </div>`;
+  if (S.remind) html += viewReminder();
   if (d.source.unmatched && d.source.unmatched.length) {
     html += `<div class="notice">These names are in the export but not on the People tab, so nobody sees their scripts: <b>${esc(d.source.unmatched.join(', '))}</b>.</div>`;
   }
@@ -1063,6 +1160,9 @@ document.addEventListener('click', (e) => {
   else if (act === 'prev') setWeek(addDays(S.week, -7));
   else if (act === 'next') setWeek(addDays(S.week, 7));
   else if (act === 'who') { S.who = el.dataset.who; renderMain(); }
+  else if (act === 'remindopen') { if (S.remind) S.remind = null; else openReminder(); renderMain(); }
+  else if (act === 'remindall' || act === 'remindnone') { Object.keys(S.remind.to).forEach((k) => { S.remind.to[k] = act === 'remindall'; }); renderMain(); }
+  else if (act === 'remindsend') sendReminder();
   else if (act === 'removeperson') setPersonActive(el.dataset.email, false);
   else if (act === 'restoreperson') setPersonActive(el.dataset.email, true);
   else if (act === 'seescripts') { S.who = el.dataset.who; S.tab = 'scripts'; store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0); }
@@ -1086,7 +1186,18 @@ document.addEventListener('click', (e) => {
   }
   else if (act === 'restart') { $('#main').innerHTML = '<div class="loading"><span class="spinner"></span>Loading</div>'; start(); }
 });
+document.addEventListener('input', (e) => {
+  if (!S.remind || !e.target) return;
+  if (e.target.id === 'remind-subject') { S.remind.subject = e.target.value; S.remind.edited = true; }
+  if (e.target.id === 'remind-message') { S.remind.message = e.target.value; S.remind.edited = true; }
+});
 document.addEventListener('change', (e) => {
+  if (S.remind && e.target && e.target.dataset && e.target.dataset.remind) {
+    S.remind.to[e.target.dataset.remind] = e.target.checked;
+    if (S.armed === 'remind') S.armed = '';
+    renderMain();
+    return;
+  }
   if (e.target && e.target.id === 'bookas') { S.bookAs = e.target.value; store.set('fth.bookAs', S.bookAs); }
 });
 
