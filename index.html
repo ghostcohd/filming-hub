@@ -204,6 +204,13 @@
   .block.mine .btn.danger { background: rgba(255,255,255,.55); border-color: rgba(30,28,23,.18); color: var(--ink); }
   .block.mine .btn.danger.armed { background: var(--red); color: #fff; border-color: var(--red); }
   .block.past { opacity: .55; }
+  .block .where { align-self: flex-start; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; background: rgba(255,255,255,.6); color: var(--ink-2); }
+  .block.mine .where { background: rgba(255,255,255,.55); color: var(--ink); }
+  .block.choosing { border: 1px solid var(--gold); background: var(--yellow-wash); }
+  .block .pick { font-size: 13px; font-weight: 600; color: var(--gold); }
+  .block.choosing .act { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .block.choosing .act .btn { width: 100%; }
+  .block.choosing .act .linkbtn { grid-column: 1 / -1; justify-self: center; padding: 2px; }
   .block .scriptsnote { font-size: 12px; color: var(--ink-2); }
   .block.mine .scriptsnote { color: rgba(30,28,23,.75); }
 
@@ -286,7 +293,7 @@
     .cday .dh { flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 10px; }
     .block { min-height: 96px; padding: 10px; }
     .block .act .btn { min-height: 40px; }
-    .bookinglist th:nth-child(4), .bookinglist td:nth-child(4) { display: none; }
+    .bookinglist th:nth-child(5), .bookinglist td:nth-child(5) { display: none; }
     .bookinglist th, .bookinglist td { padding-left: 12px; padding-right: 12px; }
   }
   /* ================= FTA Content Studio look (28 Oct) ================= */
@@ -459,7 +466,7 @@ function toast(msg, isErr) {
 /* ---------- state ---------- */
 const S = {
   token: '', boot: null, me: null, week: '', data: null, loading: false, req: 0,
-  tab: 'scripts', who: 'all', bookAs: '', pending: '', armed: '', armTimer: null,
+  tab: 'scripts', who: 'all', bookAs: '', pending: '', armed: '', armTimer: null, choosing: '',
 };
 
 /* ---------- start ---------- */
@@ -822,7 +829,8 @@ function viewCalendar() {
       let cls = 'block', who = '', act = '';
       if (b) {
         cls += b.mine ? ' mine' : ' taken';
-        who = `<span class="who">${b.mine ? 'You' : esc(b.name)}</span>`;
+        who = `<span class="who">${b.mine ? 'You' : esc(b.name)}</span>` +
+          (b.location ? `<span class="where ${b.location === 'In' ? 'in' : 'out'}">${b.location === 'In' ? 'In · studio' : 'Out · on location'}</span>` : '');
         if ((b.mine && !st.started) || admin) {
           const armed = S.armed === key;
           act = `<button class="btn small danger ${armed ? 'armed' : ''}" data-act="cancel" data-date="${day.date}" data-slot="${slot.key}" ${busy ? 'disabled' : ''}>${busy ? 'Cancelling…' : (armed ? 'Tap to confirm' : 'Cancel')}</button>`;
@@ -830,8 +838,20 @@ function viewCalendar() {
       } else if (st.started && !admin) {
         who = `<span class="muted" style="font-size:13px">${st.ended ? 'Past' : 'In progress'}</span>`;
       } else {
-        who = `<span class="muted" style="font-size:13px">Free</span>`;
-        act = `<button class="btn small" data-act="book" data-date="${day.date}" data-slot="${slot.key}" ${busy ? 'disabled' : ''}>${busy ? 'Booking…' : 'Book'}</button>`;
+        const choosing = S.choosing === key;
+        if (busy) {
+          who = `<span class="muted" style="font-size:13px">Booking…</span>`;
+          act = `<button class="btn small" disabled>Booking…</button>`;
+        } else if (choosing) {
+          cls += ' choosing';
+          who = `<span class="pick">Where are you filming?</span>`;
+          act = `<button class="btn small" data-act="bookwhere" data-where="In" data-date="${day.date}" data-slot="${slot.key}">In</button>
+            <button class="btn small" data-act="bookwhere" data-where="Out" data-date="${day.date}" data-slot="${slot.key}">Out</button>
+            <button class="linkbtn" data-act="bookback">Back</button>`;
+        } else {
+          who = `<span class="muted" style="font-size:13px">Free</span>`;
+          act = `<button class="btn small" data-act="book" data-date="${day.date}" data-slot="${slot.key}">Book</button>`;
+        }
       }
       if (st.ended) cls += ' past';
       return `<div class="${cls}">
@@ -882,7 +902,7 @@ function viewTeam() {
     const scripts = scriptsFor(p.name);
     const bk = d.bookings.filter((b) => b.email === p.email).sort((a, b) => (a.date + a.slot < b.date + b.slot ? -1 : 1));
     const booked = bk.length
-      ? bk.map((b) => `<span class="chip ok">${esc(d.days.find((x) => x.date === b.date).dow)} ${esc(slotLabel(b.slot).toLowerCase())}</span>`).join('')
+      ? bk.map((b) => `<span class="chip ok">${esc(d.days.find((x) => x.date === b.date).dow)} ${esc(slotLabel(b.slot).toLowerCase())}${b.location ? ' · ' + esc(b.location.toLowerCase()) : ''}</span>`).join('')
       : (scripts.length ? '<span class="chip warn">No filming block booked</span>' : '<span class="chip">No bookings</span>');
     return `<div class="panel person">
       <div class="row"><h3>${esc(p.name)}</h3><span class="label">${scripts.length} script${scripts.length === 1 ? '' : 's'}</span></div>
@@ -893,20 +913,21 @@ function viewTeam() {
 
   const rows = d.bookings.slice().sort((a, b) => (a.date + a.slot < b.date + b.slot ? -1 : 1)).map((b) => {
     const day = d.days.find((x) => x.date === b.date);
-    return `<tr><td>${esc(day.dow + ' ' + day.label)}</td><td>${esc(slotLabel(b.slot))}</td><td>${esc(b.name)}</td><td class="mono">${esc(b.bookedAt || '')}${b.bookedBy && b.bookedBy !== b.email ? ' · by ' + esc(b.bookedBy) : ''}</td></tr>`;
+    return `<tr><td>${esc(day.dow + ' ' + day.label)}</td><td>${esc(slotLabel(b.slot))}</td><td>${esc(b.name)}</td><td>${esc(b.location || '–')}</td><td class="mono">${esc(b.bookedAt || '')}${b.bookedBy && b.bookedBy !== b.email ? ' · by ' + esc(b.bookedBy) : ''}</td></tr>`;
   }).join('');
   html += `<div class="panel bookinglist"><h3>All bookings this week</h3>${rows
-    ? `<table><thead><tr><th>Day</th><th>Block</th><th>Presenter</th><th>Booked</th></tr></thead><tbody>${rows}</tbody></table>`
+    ? `<table><thead><tr><th>Day</th><th>Block</th><th>Presenter</th><th>In / Out</th><th>Booked</th></tr></thead><tbody>${rows}</tbody></table>`
     : '<p class="muted" style="margin:6px 18px 14px">Nothing booked yet.</p>'}</div>`;
   return html;
 }
 
 /* ---------- actions ---------- */
-async function book(date, slot) {
+async function book(date, slot, where) {
   const key = date + '|' + slot;
+  S.choosing = '';
   S.pending = key; renderMain();
   let r;
-  try { r = await call('apiBook', S.token, date, slot, S.me.isAdmin ? S.bookAs : null); }
+  try { r = await call('apiBook', S.token, date, slot, S.me.isAdmin ? S.bookAs : null, where); }
   catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t book that block.' }; }
   S.pending = '';
   afterAction(r);
@@ -989,7 +1010,9 @@ document.addEventListener('click', (e) => {
   else if (act === 'next') setWeek(addDays(S.week, 7));
   else if (act === 'who') { S.who = el.dataset.who; renderMain(); }
   else if (act === 'seescripts') { S.who = el.dataset.who; S.tab = 'scripts'; store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0); }
-  else if (act === 'book') book(el.dataset.date, el.dataset.slot);
+  else if (act === 'book') { S.choosing = el.dataset.date + '|' + el.dataset.slot; S.armed = ''; renderMain(); }
+  else if (act === 'bookwhere') book(el.dataset.date, el.dataset.slot, el.dataset.where);
+  else if (act === 'bookback') { S.choosing = ''; renderMain(); }
   else if (act === 'cancel') cancel(el.dataset.date, el.dataset.slot);
   else if (act === 'copy') { const s = S.data.scripts[Number(el.dataset.i)]; if (s) copyText(s.caption); }
   else if (act === 'copyscript') { const s = S.data.scripts[Number(el.dataset.i)]; if (s) copyText(teleprompterText(s), 'Script'); }
