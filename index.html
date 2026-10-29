@@ -434,6 +434,32 @@
     .tpb.play .lbl { display: inline; }
   }
 
+  /* ---------- editing scripts ---------- */
+  .chip.ed { background: #E8E4F7; color: #4A3B8F; border-color: transparent; font-weight: 600; }
+  .chip.ed svg { width: 13px; height: 13px; }
+  .ednote { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #F1EEFB; color: #3B2F73; border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 14px; }
+  .ednote span { flex: 1; min-width: 160px; }
+  .ednote .linkbtn { color: #3B2F73; min-height: 32px; font-weight: 600; }
+  .ednote.stale { background: var(--panel-2); color: var(--ink-2); }
+  .orig { opacity: .75; border: 1px dashed var(--line-2); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+  .orig .label { display: block; margin-bottom: 8px; }
+  .editor { display: flex; flex-direction: column; gap: 12px; }
+  .editor .help { margin: 0; font-size: 14px; color: var(--muted); }
+  .eline { border: 1px solid var(--line-2); border-radius: 12px; padding: 8px 10px 10px; background: #fff; }
+  .eline.mine { border-color: #E9C766; background: #FFFCF2; }
+  .erow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .erow .n { font-size: 12.5px; font-weight: 700; color: var(--muted); flex: 1; }
+  .erow select { min-height: 34px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); font-weight: 600; font-size: 13px; padding: 0 8px; max-width: 60%; }
+  .eicon { width: 34px; height: 34px; border-radius: 8px; border: 1px solid transparent; background: none; cursor: pointer; color: var(--muted); display: grid; place-items: center; padding: 0; flex: none; }
+  .eicon:hover { border-color: var(--line-2); color: var(--red); }
+  .eicon svg { width: 16px; height: 16px; }
+  .etext { width: 100%; border: 0; padding: 2px 2px; font: 16px/1.55 var(--body); resize: none; background: transparent; overflow: hidden; min-height: 52px; }
+  .etext:focus { outline: 0; }
+  .eline:focus-within { border-color: #E4AC27; box-shadow: 0 0 0 3px rgba(252,187,2,.3); }
+  .ecap { width: 100%; min-height: 70px; border-radius: 10px; border: 1px solid var(--line-2); padding: 10px 12px; font: 15px/1.5 var(--body); resize: vertical; background: #fff; }
+  .ecap:focus { outline: 0; border-color: #E4AC27; box-shadow: 0 0 0 3px rgba(252,187,2,.3); }
+  .btn.small svg { width: 15px; height: 15px; }
+
   /* ---------- filmed section ---------- */
   .filmedsec { margin-top: 34px; padding-top: 26px; border-top: 2px dashed var(--line-2); }
   .filmedsec .dayhead h2 { color: var(--ink-2); }
@@ -609,7 +635,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202610282036'; // changes with every release; the page uses it to update itself
+const BUILD = '202610290853'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -691,7 +717,7 @@ function toast(msg, isErr) {
 const S = {
   token: '', boot: null, me: null, week: '', data: null, loading: false, req: 0,
   tab: 'scripts', who: 'all', bookAs: '', pending: '', armed: '', armTimer: null, choosing: '',
-  fbEdit: null, viewer: '', popIdx: -1,
+  fbEdit: null, viewer: '', popIdx: -1, edit: null, showOrig: false,
 };
 
 /* ---------- start ---------- */
@@ -741,7 +767,7 @@ async function checkForUpdate() {
   if (!m || m[1] <= BUILD) return;
   let tried = ''; try { tried = sessionStorage.getItem('fth.updTried') || ''; } catch (e) {}
   if (tried === m[1]) return; // already tried this one; don't loop
-  const busy = S.pending || S.fbEdit || S.remind || S.choosing || document.querySelector('dialog[open]');
+  const busy = S.pending || S.fbEdit || S.edit || S.remind || S.choosing || document.querySelector('dialog[open]');
   if (busy) { S.updCheck = Date.now() - 3 * 60000; return; } // try again in a minute
   try { sessionStorage.setItem('fth.updTried', m[1]); } catch (e) {}
   location.replace(location.pathname + '?v=' + m[1]);
@@ -933,7 +959,7 @@ function enterPresenterView(email) {
   S.me = { name: p.name, email: p.email, isAdmin: false };
   // What a presenter's start-up data looks like: no people list, no sheet, no removed weeks.
   S.boot = Object.assign({}, base, { people: undefined, removedPeople: undefined, removedWeeks: undefined, sheetUrl: undefined, user: S.me });
-  S.tab = S.tab === 'calendar' ? 'calendar' : 'scripts'; S.who = 'all'; S.fbEdit = null; S.choosing = ''; S.armed = ''; S.remind = null;
+  S.tab = S.tab === 'calendar' ? 'calendar' : 'scripts'; S.who = 'all'; S.fbEdit = null; S.edit = null; S.choosing = ''; S.armed = ''; S.remind = null;
   S.data = null;
   renderWho(); renderBar(); loadWeek(false);
   window.scrollTo(0, 0);
@@ -948,7 +974,7 @@ function exitPresenterView() {
   window.scrollTo(0, 0);
 }
 // Things that would save something. In presenter view they're shown but do nothing.
-const PV_BLOCKED = ['book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
+const PV_BLOCKED = ['editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
 
 function weekOptions() {
   const set = new Map();
@@ -986,7 +1012,7 @@ function renderBar() {
 
 function setWeek(w) {
   if (!w || w === S.week) return;
-  S.week = w;
+  S.week = w; S.edit = null;
   S.data = null;
   renderBar();
   loadWeek(false);
@@ -1125,7 +1151,7 @@ function feedbackBlock(s, idx) {
   let html = `<div class="fb"><div class="q">${st ? 'Your answer' : 'Happy to film this one?'}</div>
     <div class="fbopts" role="group" aria-label="Your answer">${btn('happy')}${btn('changes')}${btn('scrap')}</div>`;
   if (ed) {
-    html += `<textarea class="fbnote" data-fbnote="${esc(s.key)}" maxlength="1500" aria-label="Note for Zach" placeholder="${ed.status === 'changes' ? 'What would you like changed?' : 'Why scrap it? (optional)'}">${esc(ed.note)}</textarea>
+    html += `<textarea class="fbnote" data-fbnote="${esc(s.key)}" maxlength="1500" aria-label="Note for Zach" placeholder="${ed.status === 'changes' ? 'What would you like changed? (Or tap Edit to change the script yourself.)' : 'Why scrap it? (optional)'}">${esc(ed.note)}</textarea>
       <div class="fbrow">
         <button class="btn small" data-act="fbsend" data-i="${idx}" ${busy ? 'disabled' : ''}>${busy ? 'Sending…' : 'Send to Zach'}</button>
         <button class="btn ghost small" data-act="fbcancel" ${busy ? 'disabled' : ''}>Cancel</button>
@@ -1191,6 +1217,7 @@ function scriptBits(s, viewer) {
   if (s.format) chips.push(`<span class="chip fmt">${esc(s.format)}</span>`);
   if (people.length > 1) chips.push(`<span class="chip">${people.length === 2 ? 'Two-hander' : people.length + ' presenters'}</span>`);
   if (s.trend) chips.push(`<span class="chip trend"><b>${esc(s.trend.section || 'Trend')}</b>${esc(s.trend.title)}</span>`);
+  if (s.edit) chips.push(`<span class="chip ed">${ICON.changes}Edited by ${esc(firstName(s.edit.name))}</span>`);
   const filmed = isFilmed(s);
   if (filmed) chips.unshift(`<span class="chip done">${ICON.check.replace('<svg', '<svg width="13" height="13"')}Filmed</span>`);
   const fbusy = S.pending === 'film|' + s.key;
@@ -1199,8 +1226,9 @@ function scriptBits(s, viewer) {
   const tpBtn = s.lines.length ? `<button class="btn small" data-act="prompter" data-i="${idx}">${ICON.prompter}Teleprompter</button>` : '';
   const copyBtn = s.lines.length ? `<button class="btn ghost small" data-act="copyscript" data-i="${idx}">Copy script</button>` : '';
   const docBtn = s.docUrl ? `<a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc</a>` : '';
+  const editBtn = `<button class="btn ghost small" data-act="editscript" data-i="${idx}">${ICON.changes}Edit</button>`;
   const fb = S.me.isAdmin ? feedbackSummary(s, people) : feedbackBlock(s, idx);
-  return { idx, people, isMe, who, chips, filmed, fb, cardActions: tpBtn + copyBtn + filmBtn, actions: tpBtn + copyBtn + docBtn + filmBtn };
+  return { idx, people, isMe, who, chips, filmed, fb, cardActions: tpBtn + copyBtn + editBtn + filmBtn, actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
 }
 
 function scriptCard(s, viewer) {
@@ -1242,13 +1270,26 @@ function openScript(i) {
         <div class="row"><span class="label">Caption</span><button class="copy" data-act="copy" data-i="${idx}">Copy</button></div>
         <p>${esc(s.caption)}</p>
       </div>` : '';
+  const editing = S.edit && S.edit.key === s.key;
+  let notes = '';
+  if (s.edit && !editing) {
+    const self = s.edit.email === (S.me.email || '');
+    notes += `<div class="ednote"><span>${ICON.changes.replace('<svg', '<svg width="15" height="15" style="vertical-align:-3px;margin-right:4px"')}Edited by <b>${self ? 'you' : esc(s.edit.name)}</b>${s.edit.at ? ' · ' + esc(s.edit.at) : ''}. The teleprompter and Copy script use this version.</span>
+      <button class="linkbtn" data-act="showorig">${S.showOrig ? 'Hide original' : 'See original'}</button></div>`;
+    if (S.showOrig) {
+      notes += `<div class="orig"><span class="label">Original from the Script Maker</span><div class="lines">${s.edit.original.lines.map((l) => `<p>${l.speaker ? `<span class="spk">${esc(l.speaker)}</span>` : ''}${esc(l.say)}</p>`).join('')}</div>${s.edit.original.caption ? `<p class="muted" style="margin:10px 0 0">Caption: ${esc(s.edit.original.caption)}</p>` : ''}</div>`;
+    }
+  } else if (s.editStale && !editing && (S.me.isAdmin || true)) {
+    notes += `<div class="ednote stale"><span>${esc(s.editStale.name)} edited an earlier version of this script. Zach has since updated it, so you’re seeing the new version.</span></div>`;
+  }
 
   let d = document.getElementById('scriptpop');
   if (!d) {
     d = document.createElement('dialog');
     d.id = 'scriptpop'; d.className = 'pop';
     d.setAttribute('aria-labelledby', 'pop-title');
-    d.addEventListener('click', (e) => { if (e.target === d) d.close(); }); // click the dim backdrop
+    d.addEventListener('click', (e) => { if (e.target === d && !(S.edit && S.edit.dirty)) d.close(); }); // click the dim backdrop
+    d.addEventListener('cancel', (e) => { if (S.edit && S.edit.dirty) { e.preventDefault(); toast('Save or cancel your changes first'); } });
     wireModal(d, () => { S.popIdx = -1; });
     document.body.appendChild(d);
   }
@@ -1264,15 +1305,86 @@ function openScript(i) {
       <button class="pop-close" data-act="closescript" aria-label="Close">&times;</button>
     </div>
     <div class="pop-body">
-      <div class="lines">${lines}</div>
+      ${editing ? editorHtml(s, b) : `${notes}<div class="lines">${lines}</div>
       ${caption}
-      <div style="margin-top:16px">${b.fb}</div>
+      <div style="margin-top:16px">${b.fb}</div>`}
     </div>
-    ${b.actions.trim() ? `<div class="pop-foot">${b.actions}</div>` : ''}`;
+    ${editing ? editorFoot(s) : (b.actions.trim() ? `<div class="pop-foot">${b.actions}</div>` : '')}`;
   const wasOpen = d.open;
   openModal(d);
   d.querySelector('.pop-body').scrollTop = keep;
+  if (editing) d.querySelectorAll('.etext').forEach(autoGrow);
   if (!wasOpen) d.querySelector('.pop-close').focus();
+}
+
+/* ---------- editing a script ---------- */
+function autoGrow(t) { t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+function startEdit(i) {
+  const s = S.data.scripts[i];
+  if (!s) return;
+  if (!S.edit || S.edit.key !== s.key) {
+    S.edit = { key: s.key, base: s.base, lines: s.lines.map((l) => ({ speaker: l.speaker || '', say: l.say })), caption: s.caption || '', dirty: false };
+  }
+  S.showOrig = false;
+  openScript(i);
+  const d = document.getElementById('scriptpop');
+  const first = d && d.querySelector('.etext');
+  if (first) { first.focus(); first.setSelectionRange(first.value.length, first.value.length); }
+}
+function editorHtml(s, b) {
+  const e = S.edit;
+  const speakers = [...new Set(s.lines.concat(e.lines).map((l) => l.speaker).filter(Boolean))];
+  const viewer = S.viewer || S.me.name;
+  const myFirst = nameKey(firstName(viewer));
+  const rows = e.lines.map((l, n) => {
+    const k = nameKey(l.speaker || '');
+    const mine = l.speaker && (k === nameKey(viewer) || k.split(' ')[0] === myFirst);
+    const pick = speakers.length > 1
+      ? `<select data-espk="${n}" aria-label="Who says line ${n + 1}">${speakers.map((p) => `<option ${p === l.speaker ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`
+      : (l.speaker ? `<span class="n" style="flex:none">${esc(l.speaker)}</span>` : '');
+    return `<div class="eline ${mine ? 'mine' : ''}">
+      <div class="erow"><span class="n">Line ${n + 1}</span>${pick}<button class="eicon" data-act="edel" data-n="${n}" aria-label="Delete line ${n + 1}" title="Delete this line">${ICON.scrap}</button></div>
+      <textarea class="etext" data-eline="${n}" rows="2" aria-label="Line ${n + 1}">${esc(l.say)}</textarea>
+    </div>`;
+  }).join('');
+  return `<div class="editor">
+    <p class="help">Change the words, delete lines, or add new ones. Zach gets an email with your changes, and the teleprompter and Copy script will use your version.</p>
+    ${rows || '<p class="muted">No lines yet. Add one below.</p>'}
+    <div><button class="btn ghost small" data-act="eadd">+ Add a line</button></div>
+    <label class="label" for="ecap" style="margin-top:6px">Caption</label>
+    <textarea id="ecap" class="ecap" data-ecap="1" maxlength="3000">${esc(e.caption)}</textarea>
+  </div>`;
+}
+function editorFoot(s) {
+  const busy = S.pending === 'edit|' + s.key;
+  const armed = S.armed === 'orig|' + s.key;
+  return `<div class="pop-foot">
+    <button class="btn" data-act="esave" ${busy ? 'disabled' : ''}>${busy ? 'Saving…' : 'Save changes'}</button>
+    <button class="btn ghost" data-act="ecancel" ${busy ? 'disabled' : ''}>Cancel</button>
+    ${s.edit ? `<button class="btn ghost danger ${armed ? 'armed' : ''}" data-act="eorig" ${busy ? 'disabled' : ''}>${armed ? 'Tap again to undo all edits' : 'Back to original'}</button>` : ''}
+  </div>`;
+}
+async function saveEdit(revert) {
+  const e = S.edit, i = S.popIdx, s = S.data.scripts[i];
+  if (!e || !s || s.key !== e.key) return;
+  const lines = revert ? null : e.lines.map((l) => ({ speaker: l.speaker, say: l.say.trim() })).filter((l) => l.say);
+  if (!revert && !lines.length) return toast('A script needs at least one line', true);
+  S.pending = 'edit|' + s.key; openScript(i);
+  let r;
+  try { r = await call('apiSaveEdit', S.token, S.data.week, s.key, e.base, lines, revert ? null : e.caption); }
+  catch (err) { r = { ok: false, message: (err && err.message) || 'Couldn’t save that.' }; }
+  S.pending = ''; S.armed = '';
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  if (r && r.ok && r.script) {
+    S.data.scripts[i] = r.script;
+    S.edit = null; S.showOrig = false;
+    renderMain(); openScript(i);
+  } else if (r && r.code === 'STALE') {
+    S.edit = null; openScript(i); loadWeek(false, true);
+  } else {
+    openScript(i);
+  }
+  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
 }
 
 /** Re-draws the open script pop-out after something changed (feedback, filmed). */
@@ -1823,6 +1935,30 @@ document.addEventListener('click', (e) => {
   else if (act === 'tpsize') tpSize(Number(el.dataset.d));
   else if (act === 'tpmirror') { TP.mirror = !TP.mirror; tpSave(); tpApply(); }
   else if (act === 'filmed') toggleFilmed(Number(el.dataset.i));
+  else if (act === 'editscript') startEdit(Number(el.dataset.i));
+  else if (act === 'showorig') { S.showOrig = !S.showOrig; refreshPop(); }
+  else if (act === 'eadd') {
+    const e2 = S.edit; if (!e2) return;
+    const last = e2.lines[e2.lines.length - 1];
+    e2.lines.push({ speaker: last ? last.speaker : '', say: '' }); e2.dirty = true;
+    openScript(S.popIdx);
+    const all = document.querySelectorAll('#scriptpop .etext'); const t = all[all.length - 1];
+    if (t) { t.focus(); t.scrollIntoView({ block: 'center' }); }
+  }
+  else if (act === 'edel') {
+    const e2 = S.edit; if (!e2) return;
+    e2.lines.splice(Number(el.dataset.n), 1); e2.dirty = true; openScript(S.popIdx);
+  }
+  else if (act === 'esave') saveEdit(false);
+  else if (act === 'ecancel') { S.edit = null; S.armed = ''; openScript(S.popIdx); }
+  else if (act === 'eorig') {
+    const key = 'orig|' + (S.edit && S.edit.key);
+    if (S.armed !== key) {
+      S.armed = key; openScript(S.popIdx);
+      clearTimeout(S.armTimer);
+      S.armTimer = setTimeout(() => { if (S.armed === key) { S.armed = ''; refreshPop(); } }, 4000);
+    } else saveEdit(true);
+  }
   else if (act === 'fb') {
     const i = Number(el.dataset.i), s = S.data.scripts[i], st = el.dataset.status;
     if (!s) return;
@@ -1870,12 +2006,19 @@ window.addEventListener('popstate', () => {
   ['prompter', 'scriptpop', 'pvpick'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
 });
 document.addEventListener('input', (e) => {
+  const ds = e.target && e.target.dataset;
+  if (ds && S.edit && ds.eline !== undefined) { const l = S.edit.lines[Number(ds.eline)]; if (l) { l.say = e.target.value; S.edit.dirty = true; autoGrow(e.target); } return; }
+  if (ds && S.edit && ds.ecap !== undefined) { S.edit.caption = e.target.value; S.edit.dirty = true; return; }
   if (e.target && e.target.dataset && e.target.dataset.fbnote !== undefined && S.fbEdit && S.fbEdit.key === e.target.dataset.fbnote) { S.fbEdit.note = e.target.value; return; }
   if (!S.remind || !e.target) return;
   if (e.target.id === 'remind-subject') { S.remind.subject = e.target.value; S.remind.edited = true; }
   if (e.target.id === 'remind-message') { S.remind.message = e.target.value; S.remind.edited = true; }
 });
 document.addEventListener('change', (e) => {
+  if (e.target && e.target.dataset && e.target.dataset.espk !== undefined && S.edit) {
+    const l = S.edit.lines[Number(e.target.dataset.espk)]; if (l) { l.speaker = e.target.value; S.edit.dirty = true; }
+    return;
+  }
   if (S.remind && e.target && e.target.dataset && e.target.dataset.remind) {
     S.remind.to[e.target.dataset.remind] = e.target.checked;
     if (S.armed === 'remind') S.armed = '';
