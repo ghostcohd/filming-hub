@@ -434,6 +434,13 @@
     .tpb.play .lbl { display: inline; }
   }
 
+  /* ---------- feedback comments + briefs ---------- */
+  .fbbtn.comment[aria-pressed="true"] { background: #DCEBF7; border-color: #8DB4D6; color: #1E4A72; }
+  .chip.st-comment { background: #DCEBF7; color: #1E4A72; border-color: transparent; font-weight: 600; }
+  .fbitem .chip.st-comment { font-weight: 600; }
+  .brieftext { white-space: pre-wrap; font: 13.5px/1.55 ui-monospace, Menlo, Consolas, monospace; background: var(--panel-2); border-radius: 10px; padding: 14px; margin: 0; overflow-wrap: anywhere; }
+  .briefcounts { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+
   /* ---------- editing scripts ---------- */
   .chip.ed { background: #E8E4F7; color: #4A3B8F; border-color: transparent; font-weight: 600; }
   .chip.ed svg { width: 13px; height: 13px; }
@@ -635,7 +642,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202610290853'; // changes with every release; the page uses it to update itself
+const BUILD = '202610291032'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -660,6 +667,7 @@ const ICON = {
   close: svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.6),
   restart: svg('<path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.8L3 8"/><path d="M3 3v5h5"/>'),
   mirror: svg('<path d="M12 3v18M8 7l-5 5 5 5M16 7l5 5-5 5"/>'),
+  comment: svg('<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>'),
   signout: svg('<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>'),
   eye: svg('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>'),
 };
@@ -1138,27 +1146,37 @@ function fbFor(s, name) {
   const em = S.me.isAdmin ? emailOf(name) : S.me.email;
   return fbList(s).find((f) => (em ? f.email === em : nameKey(f.name) === nameKey(name)));
 }
-const FB_LABEL = { happy: 'Happy', changes: 'Changes', scrap: 'Scrap' };
+const FB_LABEL = { happy: 'Happy', changes: 'Changes', scrap: 'Scrap', comment: 'Feedback' };
+function cmList(s) { return (S.data.comments && S.data.comments[s.key]) || []; }
+function cmFor(s, name) {
+  const em = S.me.isAdmin ? emailOf(name) : S.me.email;
+  return cmList(s).find((c) => (em ? c.email === em : nameKey(c.name) === nameKey(name)));
+}
 
-/** The presenter's Happy / Changes / Scrap buttons, with a note box for changes. */
+/** The presenter's Feedback / Changes / Scrap buttons, each with a note box. */
 function feedbackBlock(s, idx) {
-  const mine = fbList(s).find((f) => f.email === S.me.email);
-  const st = mine ? mine.status : '';
+  const mineF = fbList(s).find((f) => f.email === S.me.email);
+  const st = mineF && mineF.status !== 'happy' ? mineF.status : '';
+  const mineC = cmList(s).find((c) => c.email === S.me.email);
   const ed = S.fbEdit && S.fbEdit.key === s.key ? S.fbEdit : null;
   const busy = S.pending === 'fb|' + s.key;
-  const on = ed ? ed.status : st;
-  const btn = (k) => `<button class="fbbtn ${k}" data-act="fb" data-status="${k}" data-i="${idx}" aria-pressed="${on === k}" ${busy ? 'disabled' : ''}>${ICON[k]}${FB_LABEL[k]}</button>`;
-  let html = `<div class="fb"><div class="q">${st ? 'Your answer' : 'Happy to film this one?'}</div>
-    <div class="fbopts" role="group" aria-label="Your answer">${btn('happy')}${btn('changes')}${btn('scrap')}</div>`;
+  const pressed = (k) => (ed ? ed.status === k : (k === 'comment' ? !!mineC : st === k));
+  const btn = (k) => `<button class="fbbtn ${k}" data-act="fb" data-status="${k}" data-i="${idx}" aria-pressed="${pressed(k)}" ${busy ? 'disabled' : ''}>${ICON[k]}${FB_LABEL[k]}</button>`;
+  let html = `<div class="fb"><div class="q">Tell Zach what you think</div>
+    <div class="fbopts" role="group" aria-label="Your feedback">${btn('comment')}${btn('changes')}${btn('scrap')}</div>`;
   if (ed) {
-    html += `<textarea class="fbnote" data-fbnote="${esc(s.key)}" maxlength="1500" aria-label="Note for Zach" placeholder="${ed.status === 'changes' ? 'What would you like changed? (Or tap Edit to change the script yourself.)' : 'Why scrap it? (optional)'}">${esc(ed.note)}</textarea>
+    const ph = ed.status === 'comment' ? 'What did you think? Too long, not how you’d say it, loved the style… It all helps write better scripts for you.'
+      : ed.status === 'changes' ? 'What would you like changed? (Or tap Edit to change the script yourself.)' : 'Why scrap it? (optional)';
+    const has = ed.status === 'comment' ? !!mineC : st === ed.status;
+    html += `<textarea class="fbnote" data-fbnote="${esc(s.key)}" maxlength="2000" aria-label="Note for Zach" placeholder="${ph}">${esc(ed.note)}</textarea>
       <div class="fbrow">
         <button class="btn small" data-act="fbsend" data-i="${idx}" ${busy ? 'disabled' : ''}>${busy ? 'Sending…' : 'Send to Zach'}</button>
         <button class="btn ghost small" data-act="fbcancel" ${busy ? 'disabled' : ''}>Cancel</button>
-        ${st ? `<button class="linkbtn" data-act="fbclear" data-i="${idx}" ${busy ? 'disabled' : ''}>Remove my answer</button>` : ''}
+        ${has ? `<button class="linkbtn" data-act="fbclear" data-i="${idx}" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
       </div>`;
-  } else if (mine && mine.note) {
-    html += `<p class="fbsaid"><b>You said</b>${esc(mine.note)}</p>`;
+  } else {
+    if (mineC) html += `<p class="fbsaid"><b>Your feedback</b>${esc(mineC.text)}</p>`;
+    if (mineF && mineF.note && st) html += `<p class="fbsaid"><b>${st === 'scrap' ? 'Why you’d scrap it' : 'Changes you asked for'}</b>${esc(mineF.note)}</p>`;
   }
   return html + '</div>';
 }
@@ -1166,10 +1184,17 @@ function feedbackBlock(s, idx) {
 /** What each presenter said about a script (admin view). */
 function feedbackSummary(s, people) {
   const chips = people.map((p) => {
-    const f = fbFor(s, p);
-    return f ? `<span class="chip st-${f.status}">${esc(firstName(p))}: ${FB_LABEL[f.status]}</span>` : `<span class="chip st-wait">${esc(firstName(p))}: no answer</span>`;
+    const f = fbFor(s, p), c = cmFor(s, p);
+    const out = [];
+    if (f && f.status !== 'happy') out.push(`<span class="chip st-${f.status}">${esc(firstName(p))}: ${FB_LABEL[f.status]}</span>`);
+    if (c) out.push(`<span class="chip st-comment">${esc(firstName(p))}: Feedback</span>`);
+    return out.join('') || `<span class="chip st-wait">${esc(firstName(p))}: nothing yet</span>`;
   }).join('');
-  const notes = people.map((p) => { const f = fbFor(s, p); return f && f.note ? `<p class="fbsaid"><b>${esc(firstName(p))} said</b>${esc(f.note)}</p>` : ''; }).join('');
+  const notes = people.map((p) => {
+    const f = fbFor(s, p), c = cmFor(s, p);
+    return (c ? `<p class="fbsaid"><b>${esc(firstName(p))}’s feedback</b>${esc(c.text)}</p>` : '') +
+      (f && f.note && f.status !== 'happy' ? `<p class="fbsaid"><b>${esc(firstName(p))}: ${FB_LABEL[f.status].toLowerCase()}</b>${esc(f.note)}</p>` : '');
+  }).join('');
   return `<div class="fb"><div class="chips">${chips}</div>${notes}</div>`;
 }
 
@@ -1184,6 +1209,20 @@ async function sendFeedback(i, status, note) {
   S.pending = '';
   if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
   if (r && r.ok) { S.data.feedback = r.feedback || {}; if (S.fbEdit && S.fbEdit.key === s.key) S.fbEdit = null; }
+  renderMain(); refreshPop();
+  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+}
+
+async function sendComment(i, text) {
+  const s = S.data.scripts[i];
+  if (!s) return;
+  S.pending = 'fb|' + s.key; renderMain(); refreshPop();
+  let r;
+  try { r = await call('apiSetComment', S.token, S.data.week, s.key, text || ''); }
+  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t send that.' }; }
+  S.pending = '';
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  if (r && r.ok) { S.data.comments = r.comments || {}; if (S.fbEdit && S.fbEdit.key === s.key) S.fbEdit = null; }
   renderMain(); refreshPop();
   toast((r && r.message) || 'Something went wrong', !(r && r.ok));
 }
@@ -1228,7 +1267,7 @@ function scriptBits(s, viewer) {
   const docBtn = s.docUrl ? `<a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc</a>` : '';
   const editBtn = `<button class="btn ghost small" data-act="editscript" data-i="${idx}">${ICON.changes}Edit</button>`;
   const fb = S.me.isAdmin ? feedbackSummary(s, people) : feedbackBlock(s, idx);
-  return { idx, people, isMe, who, chips, filmed, fb, cardActions: tpBtn + copyBtn + editBtn + filmBtn, actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
+  return { idx, people, isMe, who, chips, filmed, fb, cardActions: editBtn + filmBtn, actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
 }
 
 function scriptCard(s, viewer) {
@@ -1396,6 +1435,38 @@ function refreshPop() {
     const ta2 = d.querySelector('.fbnote');
     if (focused && ta2) { ta2.focus(); ta2.setSelectionRange(ta2.value.length, ta2.value.length); }
   }
+}
+
+/* ---------- script brief (admin) ---------- */
+async function openBrief(email) {
+  let d = document.getElementById('briefpop');
+  if (!d) {
+    d = document.createElement('dialog');
+    d.id = 'briefpop'; d.className = 'pop';
+    d.setAttribute('aria-labelledby', 'brief-title');
+    d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+    wireModal(d);
+    document.body.appendChild(d);
+  }
+  const person = (S.boot.people || []).find((p) => p.email === email);
+  const head = (title, sub) => `<div class="pop-head"><div class="t"><span class="label">Script brief</span><h3 id="brief-title">${esc(title)}</h3>${sub ? `<p class="muted" style="margin:0;font-size:14px">${sub}</p>` : ''}</div>
+    <button class="pop-close" data-act="briefclose" aria-label="Close">&times;</button></div>`;
+  S.briefText = '';
+  d.innerHTML = head(person ? person.name : 'Everyone') + '<div class="pop-body"><div class="loading"><span class="spinner"></span>Putting it together</div></div>';
+  openModal(d);
+  let r;
+  try { r = await call('apiBrief', S.token, email); } catch (e) { r = { ok: false, message: e.message }; }
+  if (!d.open) return;
+  if (!r || !r.ok) { d.querySelector('.pop-body').innerHTML = `<p>${esc((r && r.message) || 'Couldn’t load the brief.')}</p>`; return; }
+  const b = r.briefs[0];
+  S.briefText = r.briefs.map((x) => x.text).join('\n\n----------\n\n');
+  const c = b.counts;
+  d.innerHTML = head(b.name, 'Everything ' + esc(firstName(b.name)) + ' has told us over the last 6 months. Paste it into the Script Maker when writing their scripts.') + `
+    <div class="pop-body">
+      <div class="briefcounts"><span class="chip st-comment">${c.comments} feedback</span><span class="chip st-changes">${c.changes} changes</span><span class="chip st-scrap">${c.scraps} scrapped</span><span class="chip ed">${c.edits} rewritten</span></div>
+      <pre class="brieftext">${esc(b.text)}</pre>
+    </div>
+    <div class="pop-foot"><button class="btn" data-act="briefcopy">Copy brief</button><button class="btn ghost" data-act="briefclose">Close</button></div>`;
 }
 
 /* ---------- pop-ups and the phone's Back button ---------- */
@@ -1615,7 +1686,7 @@ function reminderDraft(label) {
 Your scripts for ${label} are ready on the Filming Hub: https://ghostcohd.github.io/filming-hub/
 
 Before the week starts, please:
-• Read through your scripts and tap Happy, Changes or Scrap on each one. If you want changes, add a note and it comes straight to me.
+• Read through your scripts. Tap Feedback to tell me what you think, Edit to change a script yourself, or Scrap if it’s not for you. It all comes straight to me and helps me write better scripts for you.
 • Book your filming in the Calendar: pick a morning or afternoon, then In or Out.
 • On the day, open a script and tap Teleprompter to read from your phone or tablet.
 
@@ -1685,17 +1756,17 @@ async function sendReminder() {
   toast((res && res.message) || 'Something went wrong', !(res && res.ok));
 }
 
-/** Admin: every Changes / Scrap answer this week, with the notes. */
+/** Admin: every Feedback / Changes / Scrap this week, with the notes. */
 function viewFeedbackList() {
   const d = S.data;
   if (!d.source.found || !d.scripts.length) return '';
   const items = [];
   d.scripts.forEach((s) => fbList(s).forEach((f) => { if (f.status !== 'happy') items.push({ s, f }); }));
-  const answered = d.scripts.reduce((n, s) => n + fbList(s).length, 0);
-  const order = { scrap: 0, changes: 1 };
+  d.scripts.forEach((s) => cmList(s).forEach((c) => items.push({ s, f: { status: 'comment', name: c.name, note: c.text, at: c.at } })));
+  const order = { scrap: 0, changes: 1, comment: 2 };
   items.sort((a, b) => order[a.f.status] - order[b.f.status]);
   return `<div class="panel fblist"><h3>Script feedback</h3>
-    <p class="muted" style="margin:0 0 8px">${items.length ? `${items.length} answer${items.length === 1 ? '' : 's'} to look at` : (answered ? 'Everyone who’s answered is happy so far.' : 'No answers yet. Presenters tap Happy, Changes or Scrap on each script.')}</p>
+    <p class="muted" style="margin:0 0 8px">${items.length ? `${items.length} item${items.length === 1 ? '' : 's'} this week` : 'Nothing yet this week. Presenters tap Feedback, Changes or Scrap on each script.'}</p>
     ${items.map(({ s, f }) => `<div class="fbitem"><div class="t">
         <span class="chip st-${f.status}">${FB_LABEL[f.status]}</span> <b>${esc(f.name)}</b> · ${esc(s.title)}
         <div class="muted">${esc(f.at || '')}</div>
@@ -1733,16 +1804,23 @@ function viewTeam() {
     const key = 'person|' + p.email;
     const armed = S.armed === key, busy = S.pending === key;
     const remove = p.isAdmin ? '' : `<button class="btn small danger ${armed ? 'armed' : ''}" data-act="removeperson" data-email="${esc(p.email)}" ${busy ? 'disabled' : ''}>${busy ? 'Removing…' : (armed ? 'Tap to remove' : 'Remove')}</button>`;
-    const tally = { happy: 0, changes: 0, scrap: 0, wait: 0 };
+    const tally = { comment: 0, changes: 0, scrap: 0, wait: 0 };
     let filmedN = 0;
-    scripts.forEach((s) => { const f = fbFor(s, p.name); tally[f ? f.status : 'wait']++; if (isFilmed(s)) filmedN++; });
-    const tallyHtml = scripts.length ? `<div class="tally">${['happy', 'changes', 'scrap'].filter((k) => tally[k]).map((k) => `<span class="chip st-${k}">${tally[k]} ${FB_LABEL[k].toLowerCase()}</span>`).join('')}${tally.wait ? `<span class="chip st-wait">${tally.wait} no answer</span>` : ''}${filmedN ? `<span class="chip done">${filmedN} filmed</span>` : ''}</div>` : '';
+    scripts.forEach((s) => {
+      const f = fbFor(s, p.name), c = cmFor(s, p.name);
+      if (c) tally.comment++;
+      if (f && f.status !== 'happy') tally[f.status]++;
+      if (!c && !(f && f.status !== 'happy')) tally.wait++;
+      if (isFilmed(s)) filmedN++;
+    });
+    const tallyHtml = scripts.length ? `<div class="tally">${['comment', 'changes', 'scrap'].filter((k) => tally[k]).map((k) => `<span class="chip st-${k}">${tally[k]} ${FB_LABEL[k].toLowerCase()}</span>`).join('')}${tally.wait ? `<span class="chip st-wait">${tally.wait} no feedback</span>` : ''}${filmedN ? `<span class="chip done">${filmedN} filmed</span>` : ''}</div>` : '';
     return `<div class="panel person">
       <div class="row"><h3>${esc(p.name)}</h3><span class="label">${scripts.length} script${scripts.length === 1 ? '' : 's'}</span></div>
       <div class="booked">${booked}</div>
       ${tallyHtml}
       <div class="personact">
         ${scripts.length ? `<button class="btn ghost small" data-act="seescripts" data-who="${esc(p.name)}">View scripts</button>` : ''}
+        ${p.isAdmin ? '' : `<button class="btn ghost small" data-act="brief" data-email="${esc(p.email)}">Script brief</button>`}
         ${remove}
       </div>
     </div>`;
@@ -1963,9 +2041,11 @@ document.addEventListener('click', (e) => {
     const i = Number(el.dataset.i), s = S.data.scripts[i], st = el.dataset.status;
     if (!s) return;
     const mine = fbList(s).find((f) => f.email === S.me.email);
-    if (st === 'happy') { S.fbEdit = null; sendFeedback(i, mine && mine.status === 'happy' ? '' : 'happy', ''); }
-    else {
-      S.fbEdit = { key: s.key, status: st, note: (S.fbEdit && S.fbEdit.key === s.key ? S.fbEdit.note : (mine ? mine.note : '')) || '' };
+    const mineC = cmList(s).find((c) => c.email === S.me.email);
+    {
+      const prior = st === 'comment' ? (mineC ? mineC.text : '') : (mine && mine.status === st ? mine.note : '');
+      const same = S.fbEdit && S.fbEdit.key === s.key && S.fbEdit.status === st;
+      S.fbEdit = { key: s.key, status: st, note: (same ? S.fbEdit.note : prior) || '' };
       const inPop = !!el.closest('dialog');
       renderMain(); refreshPop();
       const scope = inPop ? document.getElementById('scriptpop') : document.getElementById('main');
@@ -1976,11 +2056,14 @@ document.addEventListener('click', (e) => {
   else if (act === 'fbsend') {
     const i = Number(el.dataset.i), ed = S.fbEdit;
     if (!ed) return;
-    if (ed.status === 'changes' && !ed.note.trim()) { toast('Add a note so Zach knows what to change', true); const ta = (el.closest('.fb') || document).querySelector('.fbnote'); if (ta) ta.focus(); return; }
-    sendFeedback(i, ed.status, ed.note);
+    if ((ed.status === 'changes' || ed.status === 'comment') && !ed.note.trim()) { toast(ed.status === 'comment' ? 'Write your feedback first' : 'Add a note so Zach knows what to change', true); const ta = (el.closest('.fb') || document).querySelector('.fbnote'); if (ta) ta.focus(); return; }
+    if (ed.status === 'comment') sendComment(i, ed.note); else sendFeedback(i, ed.status, ed.note);
   }
   else if (act === 'fbcancel') { S.fbEdit = null; renderMain(); refreshPop(); }
-  else if (act === 'fbclear') { S.fbEdit = null; sendFeedback(Number(el.dataset.i), '', ''); }
+  else if (act === 'fbclear') { const st2 = S.fbEdit && S.fbEdit.status; S.fbEdit = null; if (st2 === 'comment') sendComment(Number(el.dataset.i), ''); else sendFeedback(Number(el.dataset.i), '', ''); }
+  else if (act === 'brief') openBrief(el.dataset.email || '');
+  else if (act === 'briefcopy') { if (S.briefText) copyText(S.briefText, 'Brief'); }
+  else if (act === 'briefclose') { const d = document.getElementById('briefpop'); if (d) d.close(); }
   else if (act === 'gobook') {
     if (S.me.isAdmin && el.dataset.who) { const em = emailOf(el.dataset.who); if (em) { S.bookAs = em; store.set('fth.bookAs', em); } }
     S.tab = 'calendar'; store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0);
@@ -2003,7 +2086,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('popstate', () => {
   if (S.selfBack) { S.selfBack = false; return; }
   const lvl = (history.state && history.state.pop) || 0;
-  ['prompter', 'scriptpop', 'pvpick'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
+  ['prompter', 'scriptpop', 'pvpick', 'briefpop'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
 });
 document.addEventListener('input', (e) => {
   const ds = e.target && e.target.dataset;
