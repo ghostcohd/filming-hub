@@ -254,6 +254,12 @@
   .remindhead { display: flex; flex-direction: column; gap: 2px; }
   .remindhead h3 { margin: 0; font: 600 18px/1.2 var(--head); }
   .remindhead .muted { font-size: 13.5px; }
+  .remlog { padding: 16px 18px; margin-bottom: 16px; }
+  .remhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .remhead h3 { margin: 0; font: 600 17px/1.2 var(--head); }
+  .remrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .remrow .nm { font-weight: 600; min-width: 0; }
+  .remrow .chip svg { width: 13px; height: 13px; }
   .remindto { border: 0; margin: 0 0 6px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; }
   .remindto legend { margin-bottom: 6px; padding: 0; }
   .remindall { grid-column: 1 / -1; display: flex; gap: 10px; }
@@ -626,10 +632,6 @@
     .bar { padding: 6px 0 12px; }
     .tabs button { min-height: 40px; }
   }
-  /* Script cards: every card in a row is the same height, with the read button, feedback and actions lined up along the bottom */
-  .cards { align-items: stretch; }
-  .script > .readbtn { margin-top: auto; }
-  .script .foot { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -646,7 +648,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202610291032'; // changes with every release; the page uses it to update itself
+const BUILD = '202610291543'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -1701,10 +1703,43 @@ Zach`,
   };
 }
 
+/** Reminders already sent for the week on screen: email → {count, last}. */
+function remindedMap() {
+  const out = {};
+  ((S.data && S.data.source && S.data.source.reminders) || []).forEach((r) => {
+    const em = r.email || emailOf(r.name);
+    if (em) out[em] = r;
+  });
+  return out;
+}
+function niceStamp(st) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}:\d{2}))?/.exec(String(st || ''));
+  return m ? Number(m[3]) + ' ' + MONTHS[Number(m[2]) - 1] + (m[4] ? ', ' + m[4] : '') : String(st || '');
+}
 function openReminder() {
   const people = (S.boot.people || []).filter((p) => !p.isAdmin);
   S.remind = Object.assign({ to: {}, edited: false, week: S.week }, reminderDraft(S.data.label));
-  people.forEach((p) => { S.remind.to[p.email] = true; });
+  // Tick only the people who haven't had one for this week yet.
+  const sent = remindedMap();
+  people.forEach((p) => { S.remind.to[p.email] = !sent[p.email]; });
+}
+
+/** Team tab: who has had a reminder for this week, and who hasn't. */
+function viewReminderLog() {
+  const people = (S.boot.people || []).filter((p) => !p.isAdmin);
+  if (!people.length) return '';
+  const sent = remindedMap();
+  const done = people.filter((p) => sent[p.email]), todo = people.filter((p) => !sent[p.email]);
+  const row = (p) => {
+    const r = sent[p.email];
+    return `<div class="remrow"><span class="nm">${esc(p.name)}</span>${r
+      ? `<span class="chip ok">${ICON.check.replace('<svg', '<svg width="13" height="13"')}Sent ${esc(niceStamp(r.last))}${r.count > 1 ? ` · ${r.count} times` : ''}</span>`
+      : '<span class="chip st-wait">Not sent yet</span>'}</div>`;
+  };
+  return `<div class="panel remlog"><div class="remhead"><h3>Reminders for ${esc(S.data.label)}</h3>
+      <span class="muted">${done.length} of ${people.length} sent</span></div>
+    ${todo.map(row).join('')}${done.map(row).join('')}
+  </div>`;
 }
 
 function viewReminder() {
@@ -1714,6 +1749,7 @@ function viewReminder() {
   const people = (S.boot.people || []).filter((p) => !p.isAdmin);
   const chosen = people.filter((p) => r.to[p.email]);
   const busy = S.pending === 'remind', armed = S.armed === 'remind';
+  const sentMap = remindedMap();
   return `<div class="panel remind">
     <div class="remindhead"><h3>Send a reminder</h3><span class="muted">${esc(d.label)} · each person gets their own email with a link to the hub</span></div>
     <fieldset class="remindto"><legend class="label">Send to</legend>
@@ -1724,7 +1760,7 @@ function viewReminder() {
       ${people.map((p, i) => {
         const n = scriptsFor(p.name).length;
         return `<label class="tick"><input type="checkbox" id="remind-${i}" data-remind="${esc(p.email)}" ${r.to[p.email] ? 'checked' : ''}>
-          <span>${esc(p.name)}</span><span class="muted">${n} script${n === 1 ? '' : 's'}</span></label>`;
+          <span>${esc(p.name)}</span><span class="muted">${sentMap[p.email] ? 'Sent ' + esc(niceStamp(sentMap[p.email].last)) + ' · ' : ''}${n} script${n === 1 ? '' : 's'}</span></label>`;
       }).join('')}
     </fieldset>
     <label class="label" for="remind-subject">Subject</label>
@@ -1755,7 +1791,7 @@ async function sendReminder() {
   catch (e) { res = { ok: false, message: (e && e.message) || 'Couldn’t send the emails.' }; }
   S.pending = '';
   if (res && (res.code === 'SIGNIN' || res.code === 'DENIED')) return gate(res);
-  if (res && res.ok) S.remind = null;
+  if (res && res.ok) { S.remind = null; if (S.data && S.data.week === r.week && res.reminders) S.data.source.reminders = res.reminders; }
   renderMain();
   toast((res && res.message) || 'Something went wrong', !(res && res.ok));
 }
@@ -1793,6 +1829,7 @@ function viewTeam() {
     })() : ''}
   </div>`;
   if (S.remind) html += viewReminder();
+  html += viewReminderLog();
   html += viewFeedbackList();
   if (d.source.unmatched && d.source.unmatched.length) {
     html += `<div class="notice">These names are in the export but not on the People tab, so nobody sees their scripts: <b>${esc(d.source.unmatched.join(', '))}</b>.</div>`;
