@@ -214,6 +214,20 @@
   .legend .l-free::before { background: var(--panel); border: 1px dashed var(--line-2); }
   .legend .l-mine::before { background: var(--yellow); }
   .legend .l-taken::before { background: #E3E0D6; }
+  .legend .l-off::before { background: repeating-linear-gradient(135deg, #E9E6DD 0 4px, #F6F4EE 4px 8px); border: 1px solid var(--line-2); }
+  .block.off { background: repeating-linear-gradient(135deg, #EEEBE3 0 8px, #F7F5EF 8px 16px); border: 1px solid var(--line-2); }
+  .block.off .offtxt { font: 600 14px/1.3 var(--head); color: var(--ink-2); }
+  .block.off .reason, .dayctl .reason { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+  .cday.off .dh strong { color: var(--muted); }
+  .cday .offtag { display: inline-block; font-size: 12px; font-weight: 700; color: var(--red); background: #FBEFEA; border-radius: 999px; padding: 3px 9px; }
+  .dayctl { display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--line-2); padding-top: 8px; }
+  .dayctl .linkbtn { align-self: flex-start; font-size: 13px; }
+  .blockform { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .blockform input { width: 100%; min-height: 38px; border-radius: 8px; border: 1px solid var(--line-2); padding: 0 10px; font: 14px var(--body); background: #fff; }
+  .blockform input:focus { outline: 0; border-color: #E4AC27; box-shadow: 0 0 0 3px rgba(252,187,2,.3); }
+  .blockform .row2 { display: flex; gap: 6px; }
+  .blockform .row2 .btn { flex: 1; }
+  .block .act .linkbtn.blk { min-height: 30px; font-size: 12.5px; padding: 2px 4px; }
   .bookas { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
   .bookas select { height: 38px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel); padding: 0 10px; font-weight: 600; }
   .cal { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
@@ -331,6 +345,7 @@
     .cday { display: grid; grid-template-columns: 74px 1fr; align-items: stretch; gap: 10px; padding: 12px; }
     .cday .dh { flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; }
     .cday .blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .cday .dayctl { grid-column: 1 / -1; }
     .block { min-height: 104px; }
   }
   @media (max-width: 640px) {
@@ -635,6 +650,10 @@
     .bar { padding: 6px 0 12px; }
     .tabs button { min-height: 40px; }
   }
+  /* Script cards: every card in a row is the same height, with the read button, feedback and actions lined up along the bottom */
+  .cards { align-items: stretch; }
+  .script > .readbtn { margin-top: auto; }
+  .script .foot { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -651,7 +670,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202610291543'; // changes with every release; the page uses it to update itself
+const BUILD = '202611101632'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -766,7 +785,7 @@ async function start() {
     if (document.visibilityState === 'visible') checkForUpdate();
   });
   setInterval(() => {
-    if (document.visibilityState === 'visible' && S.tab === 'calendar' && S.data && !S.pending) loadWeek(false, true);
+    if (document.visibilityState === 'visible' && S.tab === 'calendar' && S.data && !S.pending && !S.offing && !S.choosing) loadWeek(false, true);
   }, 90000);
 }
 
@@ -784,7 +803,7 @@ async function checkForUpdate() {
   if (!m || m[1] <= BUILD) return;
   let tried = ''; try { tried = sessionStorage.getItem('fth.updTried') || ''; } catch (e) {}
   if (tried === m[1]) return; // already tried this one; don't loop
-  const busy = S.pending || S.fbEdit || S.edit || S.remind || S.choosing || document.querySelector('dialog[open]');
+  const busy = S.pending || S.fbEdit || S.edit || S.remind || S.choosing || S.offing || document.querySelector('dialog[open]');
   if (busy) { S.updCheck = Date.now() - 3 * 60000; return; } // try again in a minute
   try { sessionStorage.setItem('fth.updTried', m[1]); } catch (e) {}
   location.replace(location.pathname + '?v=' + m[1]);
@@ -991,7 +1010,7 @@ function exitPresenterView() {
   window.scrollTo(0, 0);
 }
 // Things that would save something. In presenter view they're shown but do nothing.
-const PV_BLOCKED = ['editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
+const PV_BLOCKED = ['offopen', 'offsave', 'editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
 
 function weekOptions() {
   const set = new Map();
@@ -1234,6 +1253,17 @@ async function sendComment(i, text) {
   if (r && r.ok) { S.data.comments = r.comments || {}; if (S.fbEdit && S.fbEdit.key === s.key) S.fbEdit = null; }
   renderMain(); refreshPop();
   toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+}
+
+async function setBlocked(date, slotKey, on, reason) {
+  const k = date + '|' + slotKey;
+  S.pending = 'off|' + k; renderMain();
+  let r;
+  try { r = await call('apiSetBlocked', S.token, date, slotKey, on, reason); }
+  catch (e) { r = { ok: false, network: true, message: (e && e.message) || 'Couldn’t save that.' }; }
+  S.pending = '';
+  if (r && r.ok) { S.offing = ''; S.offReason = ''; }
+  afterAction(r);
 }
 
 async function toggleFilmed(i) {
@@ -1633,15 +1663,32 @@ function viewCalendar() {
       <select id="bookas">${people.map((p) => `<option value="${esc(p.email)}" ${p.email === S.bookAs ? 'selected' : ''}>${esc(p.email === S.me.email ? p.name + ' (me)' : p.name)}</option>`).join('')}</select>
     </label>`;
   }
+  const blockForm = (date, slotKey) => {
+    const k = date + '|' + slotKey, busy = S.pending === 'off|' + k;
+    return `<div class="blockform">
+      <input type="text" data-offreason="${esc(k)}" maxlength="120" placeholder="Reason (optional), e.g. Zach away" value="${esc(S.offReason || '')}" aria-label="Reason">
+      <div class="row2"><button class="btn small danger" data-act="offsave" data-date="${date}" data-slot="${slotKey}" ${busy ? 'disabled' : ''}>${busy ? 'Saving…' : 'Block'}</button>
+      <button class="btn ghost small" data-act="offcancel" ${busy ? 'disabled' : ''}>Cancel</button></div>
+    </div>`;
+  };
   const cols = d.days.map((day) => {
     const isToday = day.date === d.now.date;
+    const off = (d.blocked || {})[day.date] || {};
+    const dayOff = off.ALL !== undefined;
+    const dayPast = blockState(day.date, S.boot.slots[S.boot.slots.length - 1]).ended;
     const blocks = S.boot.slots.map((slot) => {
       const b = d.bookings.find((x) => x.date === day.date && x.slot === slot.key);
       const st = blockState(day.date, slot);
       const key = day.date + '|' + slot.key;
       const busy = S.pending === key;
+      const isOff = dayOff || off[slot.key] !== undefined;
       let cls = 'block', who = '', act = '';
-      if (b) {
+      if (isOff && !b) {
+        cls += ' off';
+        const why = dayOff ? off.ALL : off[slot.key];
+        who = `<span class="offtxt">Unavailable</span>${why ? `<span class="reason">${esc(why)}</span>` : ''}`;
+        if (admin && !dayOff && !st.ended) act = `<button class="linkbtn blk" data-act="offopen" data-on="0" data-date="${day.date}" data-slot="${slot.key}" ${S.pending === 'off|' + key ? 'disabled' : ''}>${S.pending === 'off|' + key ? 'Saving…' : 'Unblock'}</button>`;
+      } else if (b) {
         cls += b.mine ? ' mine' : ' taken';
         who = `<span class="who">${b.mine ? 'You' : esc(b.name)}</span>` +
           (b.location ? `<span class="where ${b.location === 'In' ? 'in' : 'out'}">${b.location === 'In' ? 'In · studio' : 'Out · on location'}</span>` : '');
@@ -1662,9 +1709,13 @@ function viewCalendar() {
           act = `<button class="btn small" data-act="bookwhere" data-where="In" data-date="${day.date}" data-slot="${slot.key}">In</button>
             <button class="btn small" data-act="bookwhere" data-where="Out" data-date="${day.date}" data-slot="${slot.key}">Out</button>
             <button class="linkbtn" data-act="bookback">Back</button>`;
+        } else if (admin && S.offing === key) {
+          who = `<span class="pick">Block this ${esc(slot.label.toLowerCase())}?</span>`;
+          act = blockForm(day.date, slot.key);
         } else {
           who = `<span class="muted" style="font-size:13px">Free</span>`;
-          act = `<button class="btn small" data-act="book" data-date="${day.date}" data-slot="${slot.key}">Book</button>`;
+          act = `<button class="btn small" data-act="book" data-date="${day.date}" data-slot="${slot.key}">Book</button>` +
+            (admin && !st.ended ? `<button class="linkbtn blk" data-act="offopen" data-on="1" data-date="${day.date}" data-slot="${slot.key}">Block out</button>` : '');
         }
       }
       if (st.ended) cls += ' past';
@@ -1675,15 +1726,24 @@ function viewCalendar() {
         <div class="act">${act}</div>
       </div>`;
     }).join('');
-    return `<div class="panel cday ${isToday ? 'today' : ''}">
-      <div class="dh"><strong>${day.dow}</strong><span class="label">${esc(day.label)}${isToday ? ' · today' : ''}</span></div>
+    let ctl = '';
+    if (admin && !dayPast) {
+      const k = day.date + '|ALL', busy = S.pending === 'off|' + k;
+      ctl = `<div class="dayctl">${S.offing === k ? `<span class="pick">Block out all of ${esc(day.dow)}?</span>${blockForm(day.date, 'ALL')}`
+        : (dayOff ? `<button class="linkbtn" data-act="offopen" data-on="0" data-date="${day.date}" data-slot="ALL" ${busy ? 'disabled' : ''}>${busy ? 'Saving…' : 'Unblock the day'}</button>`
+          : `<button class="linkbtn" data-act="offopen" data-on="1" data-date="${day.date}" data-slot="ALL">Block out the whole day</button>`)}</div>`;
+    }
+    return `<div class="panel cday ${isToday ? 'today' : ''} ${dayOff ? 'off' : ''}">
+      <div class="dh"><strong>${day.dow}</strong><span class="label">${esc(day.label)}${isToday ? ' · today' : ''}</span>${dayOff ? '<span class="offtag">Unavailable</span>' : ''}</div>
       <div class="blocks">${blocks}</div>
+      ${ctl}
     </div>`;
   }).join('');
 
   const myCount = d.bookings.filter((b) => b.mine).length;
+  const offCount = d.days.reduce((n, day) => { const o = (d.blocked || {})[day.date] || {}; return n + S.boot.slots.filter((sl) => o.ALL !== undefined || o[sl.key] !== undefined).length; }, 0);
   const summary = admin
-    ? `${d.bookings.length} of ${d.days.length * S.boot.slots.length} blocks booked`
+    ? `${d.bookings.length} of ${d.days.length * S.boot.slots.length - offCount} blocks booked${offCount ? ` · ${offCount} blocked out` : ''}`
     : (myCount ? `You’ve booked ${myCount} block${myCount === 1 ? '' : 's'} this week` : 'You haven’t booked a block this week');
   const lastDay = d.days[d.days.length - 1].date;
   const finished = lastDay < d.now.date;
@@ -1692,7 +1752,7 @@ function viewCalendar() {
     : '';
   return `${notice}<div class="calhead">
       <div><div class="label">${esc(summary)}</div></div>
-      <div class="legend"><span class="l-free">Free</span><span class="l-mine">${admin ? 'Booked by you' : 'Yours'}</span><span class="l-taken">Taken</span></div>
+      <div class="legend"><span class="l-free">Free</span><span class="l-mine">${admin ? 'Booked by you' : 'Yours'}</span><span class="l-taken">Taken</span><span class="l-off">Unavailable</span></div>
       ${tools}
     </div>
     <div class="cal">${cols}</div>`;
@@ -1990,6 +2050,7 @@ async function setWeekHidden(hide, week) {
 function afterAction(r) {
   if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
   if (r && r.bookings && S.data) S.data.bookings = r.bookings;
+  if (r && r.blocked && S.data) S.data.blocked = r.blocked;
   renderMain();
   toast((r && r.message) || (r && r.ok ? 'Done' : 'Something went wrong'), !(r && r.ok));
   // The request may have reached the hub even though the answer didn't reach us. Check, quietly.
@@ -2028,6 +2089,9 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.acct')) { const m = document.querySelector('.acctmenu'); if (m && !m.hidden) toggleAcct(false); }
 });
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target && e.target.dataset && e.target.dataset.offreason !== undefined) {
+    e.preventDefault(); const [dt, sl] = e.target.dataset.offreason.split('|'); setBlocked(dt, sl, true, S.offReason || ''); return;
+  }
   const m = document.querySelector('.acctmenu');
   if (e.key === 'Escape' && m && !m.hidden) { toggleAcct(false); const b = document.querySelector('.acctbtn'); if (b) b.focus(); }
 });
@@ -2071,6 +2135,13 @@ document.addEventListener('click', (e) => {
   else if (act === 'tpmirror') { TP.mirror = !TP.mirror; tpSave(); tpApply(); }
   else if (act === 'filmed') toggleFilmed(Number(el.dataset.i));
   else if (act === 'editscript') startEdit(Number(el.dataset.i));
+  else if (act === 'offopen') {
+    const k = el.dataset.date + '|' + el.dataset.slot;
+    if (el.dataset.on === '1') { S.offing = k; S.offReason = ''; S.choosing = ''; renderMain(); const inp = document.querySelector(`[data-offreason="${CSS.escape(k)}"]`); if (inp) inp.focus(); }
+    else setBlocked(el.dataset.date, el.dataset.slot, false, '');
+  }
+  else if (act === 'offcancel') { S.offing = ''; renderMain(); }
+  else if (act === 'offsave') setBlocked(el.dataset.date, el.dataset.slot, true, S.offReason || '');
   else if (act === 'showorig') { S.showOrig = !S.showOrig; refreshPop(); }
   else if (act === 'eadd') {
     const e2 = S.edit; if (!e2) return;
@@ -2147,6 +2218,7 @@ window.addEventListener('popstate', () => {
 });
 document.addEventListener('input', (e) => {
   const ds = e.target && e.target.dataset;
+  if (ds && ds.offreason !== undefined) { S.offReason = e.target.value; return; }
   if (ds && S.edit && ds.eline !== undefined) { const l = S.edit.lines[Number(ds.eline)]; if (l) { l.say = e.target.value; S.edit.dirty = true; autoGrow(e.target); } return; }
   if (ds && S.edit && ds.ecap !== undefined) { S.edit.caption = e.target.value; S.edit.dirty = true; return; }
   if (e.target && e.target.dataset && e.target.dataset.fbnote !== undefined && S.fbEdit && S.fbEdit.key === e.target.dataset.fbnote) { S.fbEdit.note = e.target.value; return; }
