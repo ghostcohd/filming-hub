@@ -121,6 +121,9 @@
     background: var(--panel-2); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); line-height: 1.35;
   }
   .chip.fmt { background: var(--yellow-soft); border-color: transparent; color: var(--gold); font-weight: 600; }
+  .chip.brand { font-weight: 700; letter-spacing: .02em; gap: 6px; }
+  .chip.brand::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--bt, #999); flex: none; }
+  .chip.brand.b-fta { --bt: #E0A800; } .chip.brand.b-tpc { --bt: #2F6FDE; } .chip.brand.b-tpcic { --bt: #16336E; } .chip.brand.b-tac { --bt: #1F9D6B; }
   .chip.trend b { font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
   .chip.warn { background: #FBE9E2; border-color: transparent; color: var(--red); }
   .chip.ok { background: var(--yellow-soft); border-color: transparent; color: var(--gold); }
@@ -1253,6 +1256,18 @@ function emailOf(name) {
   return p ? p.email : '';
 }
 
+/* Which brand a script is for: the Script Maker's tag if the server passes it, else read from what the script promotes */
+const BRAND_NAMES = { fta: ['FTA', 'Frank Taylor & Associates'], tpc: ['TPC', 'The Principals Club'], tpcic: ['TPC IC', 'The Principals Club Inner Circle'], tac: ['TAC', 'The Associates Club'] };
+function brandOf(s) {
+  const t = String(s.brand || '').toLowerCase().replace(/\s+/g, '');
+  if (BRAND_NAMES[t]) return t;
+  const txt = [s.caption || ''].concat((s.lines || []).slice(-2).map((l) => l.say || '')).join(' ');
+  if (/inner circle/i.test(txt)) return 'tpcic';
+  if (/associates club|young dentist club/i.test(txt)) return 'tac';
+  if (/principals club/i.test(txt)) return 'tpc';
+  return 'fta';
+}
+
 function scriptBits(s, viewer) {
   const idx = S.data.scripts.indexOf(s);
   const people = s.presenters.length ? s.presenters : [s.owner];
@@ -1260,6 +1275,7 @@ function scriptBits(s, viewer) {
   const who = people.map((p) => `<span class="${isMe(p) ? 'me' : ''}">${esc(p)}${isMe(p) && people.length > 1 ? ' (you)' : ''}</span>`).join('<i> &amp; </i>');
   const chips = [];
   if (s.format) chips.push(`<span class="chip fmt">${esc(s.format)}</span>`);
+  { const b = brandOf(s); chips.push(`<span class="chip brand b-${b}" title="Brand: ${esc(BRAND_NAMES[b][1])}">${esc(BRAND_NAMES[b][0])}</span>`); }
   if (people.length > 1) chips.push(`<span class="chip">${people.length === 2 ? 'Two-hander' : people.length + ' presenters'}</span>`);
   if (s.trend) chips.push(`<span class="chip trend"><b>${esc(s.trend.section || 'Trend')}</b>${esc(s.trend.title)}</span>`);
   if (s.edit) chips.push(`<span class="chip ed">${ICON.changes}Edited by ${esc(firstName(s.edit.name))}</span>`);
