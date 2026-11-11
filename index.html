@@ -387,9 +387,17 @@
   /* ---------- script feedback ---------- */
   .fb { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
   .fb .q { font-size: 13px; font-weight: 600; color: var(--muted); }
-  .fbopts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  @media (max-width: 1100px) { .cards .fbopts { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 640px) { .fbopts { grid-template-columns: repeat(2, 1fr); } }
+  .fbmain { display: flex; gap: 8px; align-items: center; }
+  .fbmain .fbbtn.approved { flex: 1; min-height: 44px; font-size: 15px; }
+  .fbmain .filmbox { margin-left: 0; }
+  .fbmore { display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 0; margin: -4px -6px 0; }
+  .fbbtn.mini { min-height: 36px; border: 0; background: none; padding: 0 6px; gap: 5px; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: var(--muted); border-radius: 8px; }
+  .fbbtn.mini svg { width: 15px; height: 15px; }
+  @media (max-width: 360px) { .fbbtn.mini svg { display: none; } }
+  .fbbtn.mini:hover { background: var(--panel-2); color: var(--ink); }
+  .fbbtn.mini.comment[aria-pressed="true"] { background: #DCEBF7; color: #1E4A72; }
+  .fbbtn.mini.changes[aria-pressed="true"] { background: var(--yellow-soft, #FFF1C2); color: var(--ink-deep); }
+  .fbbtn.mini.scrap[aria-pressed="true"] { background: #F7E1D8; color: var(--red); }
   .fbbtn { min-height: 42px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel); cursor: pointer; font-weight: 700; font-size: 14px; color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 6px; }
   .fbbtn:hover { border-color: #C7C3B8; background: var(--panel-2); }
   .fbbtn svg { width: 16px; height: 16px; flex: none; }
@@ -675,7 +683,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202611111208'; // changes with every release; the page uses it to update itself
+const BUILD = '202611111222'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -1189,16 +1197,19 @@ function cmFor(s, name) {
 }
 
 /** The presenter's Approve / Feedback / Changes / Scrap buttons. */
-function feedbackBlock(s, idx) {
+function feedbackBlock(s, idx, extra) {
+  extra = extra || {};
   const mineF = fbList(s).find((f) => f.email === S.me.email);
   const st = mineF ? (isApproved(mineF) ? 'approved' : mineF.status) : '';
   const mineC = cmList(s).find((c) => c.email === S.me.email);
   const ed = S.fbEdit && S.fbEdit.key === s.key ? S.fbEdit : null;
   const busy = S.pending === 'fb|' + s.key;
   const pressed = (k) => (ed ? ed.status === k : (k === 'comment' ? !!mineC : st === k));
-  const btn = (k, label) => `<button class="fbbtn ${k}" data-act="fb" data-status="${k}" data-i="${idx}" aria-pressed="${pressed(k)}" ${busy ? 'disabled' : ''}>${ICON[k]}${label || FB_LABEL[k]}</button>`;
-  let html = `<div class="fb"><div class="q">${st === 'approved' ? 'You’ve approved this script' : 'Read it through, then…'}</div>
-    <div class="fbopts" role="group" aria-label="Your answer">${btn('approved', st === 'approved' ? 'Approved' : 'Approve')}${btn('comment')}${btn('changes')}${btn('scrap')}</div>`;
+  const mini = (k) => `<button class="fbbtn mini ${k}" data-act="fb" data-status="${k}" data-i="${idx}" aria-pressed="${pressed(k)}" ${busy ? 'disabled' : ''}>${ICON[k]}${FB_LABEL[k]}</button>`;
+  const ok = st === 'approved';
+  let html = `<div class="fb">
+    <div class="fbmain"><button class="fbbtn approved" data-act="fb" data-status="approved" data-i="${idx}" aria-pressed="${ok}" ${busy ? 'disabled' : ''}>${ICON.approved}${ok ? 'Approved' : 'Approve script'}</button>${extra.film || ''}</div>
+    <div class="fbmore" role="group" aria-label="More options">${extra.edit || ''}${mini('comment')}${mini('changes')}${mini('scrap')}</div>`;
   if (ed) {
     const ph = ed.status === 'comment' ? 'What did you think? Too long, not how you’d say it, loved the style… It all helps write better scripts for you.'
       : ed.status === 'changes' ? 'What would you like changed? (Or tap Edit to change the script yourself.)' : 'Why scrap it? (optional)';
@@ -1330,9 +1341,10 @@ function scriptBits(s, viewer) {
   const isMe = (p) => viewer && nameKey(p) === nameKey(viewer);
   const who = people.map((p) => `<span class="${isMe(p) ? 'me' : ''}">${esc(p)}${isMe(p) && people.length > 1 ? ' (you)' : ''}</span>`).join('<i> &amp; </i>');
   const chips = [];
-  if (s.format) chips.push(`<span class="chip fmt">${esc(s.format)}</span>`);
+  const same = (a, b) => nameKey(a || '') === nameKey(b || '');
+  if (s.format && !(s.trend && same(s.format, s.trend.title))) chips.push(`<span class="chip fmt">${esc(s.format)}</span>`);
   { const b = brandOf(s); chips.push(`<span class="chip brand b-${b}" title="Brand: ${esc(BRAND_NAMES[b][1])}">${esc(BRAND_NAMES[b][0])}</span>`); }
-  if (people.length > 1) chips.push(`<span class="chip">${people.length === 2 ? 'Two-hander' : people.length + ' presenters'}</span>`);
+  if (people.length > 1 && !(s.format && /two.?hander|presenters/i.test(s.format))) chips.push(`<span class="chip">${people.length === 2 ? 'Two-hander' : people.length + ' presenters'}</span>`);
   if (s.trend) chips.push(`<span class="chip trend"><b>${esc(s.trend.section || 'Trend')}</b>${esc(s.trend.title)}</span>`);
   if (s.edit) chips.push(`<span class="chip ed">${ICON.changes}Edited by ${esc(firstName(s.edit.name))}</span>`);
   const filmed = isFilmed(s);
@@ -1345,7 +1357,8 @@ function scriptBits(s, viewer) {
   const docBtn = s.docUrl ? `<a class="btn ghost small" href="${esc(s.docUrl)}" target="_blank" rel="noopener">Open Google Doc</a>` : '';
   const editBtn = `<button class="btn ghost small" data-act="editscript" data-i="${idx}">${ICON.changes}Edit</button>`;
   const fb = S.me.isAdmin ? feedbackSummary(s, people) : feedbackBlock(s, idx);
-  return { idx, people, isMe, who, chips, filmed, fb, cardActions: editBtn + filmBtn, actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
+  const cardFb = S.me.isAdmin ? fb : feedbackBlock(s, idx, { film: filmBtn, edit: `<button class="fbbtn mini" data-act="editscript" data-i="${idx}">${ICON.changes}Edit</button>` });
+  return { idx, people, isMe, who, chips, filmed, fb, cardFb, cardActions: S.me.isAdmin ? editBtn + filmBtn : '', actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
 }
 
 function scriptCard(s, viewer) {
@@ -1354,13 +1367,13 @@ function scriptCard(s, viewer) {
     <div class="toprow"><span class="label presenters">${b.who}</span></div>
     <h3>${esc(s.title)}</h3>
     ${b.chips.length ? `<div class="chips">${b.chips.join('')}</div>` : ''}
-    ${s.lines[0] ? `<p class="preview" data-act="readscript" data-i="${b.idx}">${esc(s.lines[0].say)}</p>` : ''}
+    ${s.lines[0] && nameKey(s.lines[0].say) !== nameKey(s.title) ? `<p class="preview" data-act="readscript" data-i="${b.idx}">${esc(s.lines[0].say)}</p>` : ''}
     <button class="readbtn" data-act="readscript" data-i="${b.idx}" aria-haspopup="dialog">
       <span class="sum-label">Read script${s.caption ? ' &amp; caption' : ''}</span>
       <span class="sum-count">${s.lines.length} line${s.lines.length === 1 ? '' : 's'}</span>
     </button>
-    ${b.fb}
-    <div class="foot">${b.cardActions}</div>
+    ${b.cardFb}
+    ${b.cardActions ? `<div class="foot">${b.cardActions}</div>` : ''}
   </article>`;
 }
 
