@@ -387,11 +387,15 @@
   /* ---------- script feedback ---------- */
   .fb { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
   .fb .q { font-size: 13px; font-weight: 600; color: var(--muted); }
-  .fbopts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .fbopts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  @media (max-width: 1100px) { .cards .fbopts { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .fbopts { grid-template-columns: repeat(2, 1fr); } }
   .fbbtn { min-height: 42px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel); cursor: pointer; font-weight: 700; font-size: 14px; color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 6px; }
   .fbbtn:hover { border-color: #C7C3B8; background: var(--panel-2); }
   .fbbtn svg { width: 16px; height: 16px; flex: none; }
-  .fbbtn.happy[aria-pressed="true"] { background: #E3F1DF; border-color: #8DBA82; color: #2D5A23; }
+  .fbbtn.approved[aria-pressed="true"] { background: #3E9A4B; border-color: #3E9A4B; color: #fff; }
+  .fbbtn.approved:not([aria-pressed="true"]) { color: #2D6B36; border-color: #A8CFA6; }
+  .scrapwarn { margin: 0; font-size: 13.5px; color: var(--red); background: #FBEFEA; border-radius: 10px; padding: 9px 12px; }
   .fbbtn.changes[aria-pressed="true"] { background: var(--yellow); border-color: var(--yellow); color: var(--ink-deep); }
   .fbbtn.scrap[aria-pressed="true"] { background: #F7E1D8; border-color: #D9927A; color: var(--red); }
   .fbbtn:disabled { opacity: .6; cursor: default; }
@@ -400,7 +404,8 @@
   .fbrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .fbsaid { margin: 0; font-size: 14px; color: var(--ink-2); background: var(--panel-2); border-radius: 10px; padding: 9px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .fbsaid b { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 2px; }
-  .chip.st-happy { background: #E3F1DF; color: #2D5A23; border-color: transparent; }
+  .chip.st-happy, .chip.st-approved { background: #E3F1DF; color: #2D5A23; border-color: transparent; font-weight: 600; }
+  .chip.st-approved svg { width: 12px; height: 12px; }
   .chip.st-changes { background: var(--yellow); color: var(--ink-deep); border-color: transparent; font-weight: 600; }
   .chip.st-scrap { background: #F7E1D8; color: var(--red); border-color: transparent; font-weight: 600; }
   .chip.st-wait { background: transparent; border-style: dashed; color: var(--muted); }
@@ -670,7 +675,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202611101632'; // changes with every release; the page uses it to update itself
+const BUILD = '202611111208'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -684,6 +689,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const svg = (d, w) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="${w || 2.2}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICON = {
   happy: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
+  approved: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
   changes: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>'),
   scrap: svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.6),
   check: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
@@ -1010,7 +1016,7 @@ function exitPresenterView() {
   window.scrollTo(0, 0);
 }
 // Things that would save something. In presenter view they're shown but do nothing.
-const PV_BLOCKED = ['offopen', 'offsave', 'editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
+const PV_BLOCKED = ['restorescript', 'offopen', 'offsave', 'editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
 
 function weekOptions() {
   const set = new Map();
@@ -1174,37 +1180,40 @@ function fbFor(s, name) {
   const em = S.me.isAdmin ? emailOf(name) : S.me.email;
   return fbList(s).find((f) => (em ? f.email === em : nameKey(f.name) === nameKey(name)));
 }
-const FB_LABEL = { happy: 'Happy', changes: 'Changes', scrap: 'Scrap', comment: 'Feedback' };
+const FB_LABEL = { approved: 'Approved', happy: 'Approved', changes: 'Changes', scrap: 'Scrap', comment: 'Feedback' };
+const isApproved = (f) => !!f && (f.status === 'approved' || f.status === 'happy');
 function cmList(s) { return (S.data.comments && S.data.comments[s.key]) || []; }
 function cmFor(s, name) {
   const em = S.me.isAdmin ? emailOf(name) : S.me.email;
   return cmList(s).find((c) => (em ? c.email === em : nameKey(c.name) === nameKey(name)));
 }
 
-/** The presenter's Feedback / Changes / Scrap buttons, each with a note box. */
+/** The presenter's Approve / Feedback / Changes / Scrap buttons. */
 function feedbackBlock(s, idx) {
   const mineF = fbList(s).find((f) => f.email === S.me.email);
-  const st = mineF && mineF.status !== 'happy' ? mineF.status : '';
+  const st = mineF ? (isApproved(mineF) ? 'approved' : mineF.status) : '';
   const mineC = cmList(s).find((c) => c.email === S.me.email);
   const ed = S.fbEdit && S.fbEdit.key === s.key ? S.fbEdit : null;
   const busy = S.pending === 'fb|' + s.key;
   const pressed = (k) => (ed ? ed.status === k : (k === 'comment' ? !!mineC : st === k));
-  const btn = (k) => `<button class="fbbtn ${k}" data-act="fb" data-status="${k}" data-i="${idx}" aria-pressed="${pressed(k)}" ${busy ? 'disabled' : ''}>${ICON[k]}${FB_LABEL[k]}</button>`;
-  let html = `<div class="fb"><div class="q">Tell Zach what you think</div>
-    <div class="fbopts" role="group" aria-label="Your feedback">${btn('comment')}${btn('changes')}${btn('scrap')}</div>`;
+  const btn = (k, label) => `<button class="fbbtn ${k}" data-act="fb" data-status="${k}" data-i="${idx}" aria-pressed="${pressed(k)}" ${busy ? 'disabled' : ''}>${ICON[k]}${label || FB_LABEL[k]}</button>`;
+  let html = `<div class="fb"><div class="q">${st === 'approved' ? 'You’ve approved this script' : 'Read it through, then…'}</div>
+    <div class="fbopts" role="group" aria-label="Your answer">${btn('approved', st === 'approved' ? 'Approved' : 'Approve')}${btn('comment')}${btn('changes')}${btn('scrap')}</div>`;
   if (ed) {
     const ph = ed.status === 'comment' ? 'What did you think? Too long, not how you’d say it, loved the style… It all helps write better scripts for you.'
       : ed.status === 'changes' ? 'What would you like changed? (Or tap Edit to change the script yourself.)' : 'Why scrap it? (optional)';
     const has = ed.status === 'comment' ? !!mineC : st === ed.status;
-    html += `<textarea class="fbnote" data-fbnote="${esc(s.key)}" maxlength="2000" aria-label="Note for Zach" placeholder="${ph}">${esc(ed.note)}</textarea>
+    const scrapping = ed.status === 'scrap';
+    html += `${scrapping ? '<p class="scrapwarn">Scrapping removes this script from the hub for everyone on it. Zach can bring it back if needed.</p>' : ''}
+      <textarea class="fbnote" data-fbnote="${esc(s.key)}" maxlength="2000" aria-label="Note for Zach" placeholder="${ph}">${esc(ed.note)}</textarea>
       <div class="fbrow">
-        <button class="btn small" data-act="fbsend" data-i="${idx}" ${busy ? 'disabled' : ''}>${busy ? 'Sending…' : 'Send to Zach'}</button>
+        <button class="btn small ${scrapping ? 'danger armed' : ''}" data-act="fbsend" data-i="${idx}" ${busy ? 'disabled' : ''}>${busy ? 'Saving…' : (scrapping ? 'Scrap this script' : 'Send to Zach')}</button>
         <button class="btn ghost small" data-act="fbcancel" ${busy ? 'disabled' : ''}>Cancel</button>
         ${has ? `<button class="linkbtn" data-act="fbclear" data-i="${idx}" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
       </div>`;
   } else {
     if (mineC) html += `<p class="fbsaid"><b>Your feedback</b>${esc(mineC.text)}</p>`;
-    if (mineF && mineF.note && st) html += `<p class="fbsaid"><b>${st === 'scrap' ? 'Why you’d scrap it' : 'Changes you asked for'}</b>${esc(mineF.note)}</p>`;
+    if (mineF && mineF.note && st === 'changes') html += `<p class="fbsaid"><b>Changes you asked for</b>${esc(mineF.note)}</p>`;
   }
   return html + '</div>';
 }
@@ -1214,14 +1223,14 @@ function feedbackSummary(s, people) {
   const chips = people.map((p) => {
     const f = fbFor(s, p), c = cmFor(s, p);
     const out = [];
-    if (f && f.status !== 'happy') out.push(`<span class="chip st-${f.status}">${esc(firstName(p))}: ${FB_LABEL[f.status]}</span>`);
+    if (f) out.push(`<span class="chip st-${isApproved(f) ? 'approved' : f.status}">${isApproved(f) ? ICON.check.replace('<svg', '<svg width="12" height="12"') : ''}${esc(firstName(p))}: ${FB_LABEL[f.status]}</span>`);
     if (c) out.push(`<span class="chip st-comment">${esc(firstName(p))}: Feedback</span>`);
     return out.join('') || `<span class="chip st-wait">${esc(firstName(p))}: nothing yet</span>`;
   }).join('');
   const notes = people.map((p) => {
     const f = fbFor(s, p), c = cmFor(s, p);
     return (c ? `<p class="fbsaid"><b>${esc(firstName(p))}’s feedback</b>${esc(c.text)}</p>` : '') +
-      (f && f.note && f.status !== 'happy' ? `<p class="fbsaid"><b>${esc(firstName(p))}: ${FB_LABEL[f.status].toLowerCase()}</b>${esc(f.note)}</p>` : '');
+      (f && f.note && !isApproved(f) ? `<p class="fbsaid"><b>${esc(firstName(p))}: ${FB_LABEL[f.status].toLowerCase()}</b>${esc(f.note)}</p>` : '');
   }).join('');
   return `<div class="fb"><div class="chips">${chips}</div>${notes}</div>`;
 }
@@ -1237,8 +1246,25 @@ async function sendFeedback(i, status, note) {
   S.pending = '';
   if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
   if (r && r.ok) { S.data.feedback = r.feedback || {}; if (S.fbEdit && S.fbEdit.key === s.key) S.fbEdit = null; }
+  if (r && r.ok && status === 'scrap') {
+    // Gone for everyone: take it off the screen now, then re-check with the hub.
+    const pd = document.getElementById('scriptpop'); if (pd && pd.open) pd.close();
+    S.data.scripts = S.data.scripts.filter((x) => x.key !== s.key);
+    loadWeek(false, true);
+  }
   renderMain(); refreshPop();
   toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+}
+
+async function restoreScript(key) {
+  S.pending = 'restore|' + key; renderMain();
+  let r;
+  try { r = await call('apiRestoreScript', S.token, S.data.week, key); }
+  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t restore that.' }; }
+  S.pending = '';
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+  if (r && r.ok) loadWeek(false, true); else renderMain();
 }
 
 async function sendComment(i, text) {
@@ -1768,7 +1794,7 @@ function reminderDraft(label) {
 Your scripts for ${label} are ready on the Filming Hub: https://ghostcohd.github.io/filming-hub/
 
 Before the week starts, please:
-• Read through your scripts. Tap Feedback to tell me what you think, Edit to change a script yourself, or Scrap if it’s not for you. It all comes straight to me and helps me write better scripts for you.
+• Read through your scripts. Tap Approve if you’re happy with one, Edit to change it yourself, Feedback to tell me what you think, or Scrap if it’s not for you.
 • Book your filming in the Calendar: pick a morning or afternoon, then In or Out.
 • On the day, open a script and tap Teleprompter to read from your phone or tablet.
 
@@ -1872,12 +1898,26 @@ async function sendReminder() {
   toast((res && res.message) || 'Something went wrong', !(res && res.ok));
 }
 
+/** Admin: scripts presenters have scrapped this week (gone from the hub), with Restore. */
+function viewScrapped() {
+  const list = (S.data.source && S.data.source.scrapped) || [];
+  if (!list.length) return '';
+  return `<div class="panel fblist"><h3>Scrapped scripts</h3>
+    <p class="muted" style="margin:0 0 8px">These have been taken off the hub. Restore one to put it back for its presenters.</p>
+    ${list.map((x) => `<div class="fbitem"><div class="t">
+        <span class="chip st-scrap">Scrapped</span> <b>${esc(x.title)}</b>
+        <div class="muted">${esc(x.by || '')}${x.at ? ' · ' + esc(niceStamp(x.at)) : ''}</div>
+        ${x.note ? `<p>${esc(x.note)}</p>` : ''}
+      </div><button class="btn ghost small" data-act="restorescript" data-key="${esc(x.key)}" ${S.pending === 'restore|' + x.key ? 'disabled' : ''}>${S.pending === 'restore|' + x.key ? 'Restoring…' : 'Restore'}</button></div>`).join('')}
+  </div>`;
+}
+
 /** Admin: every Feedback / Changes / Scrap this week, with the notes. */
 function viewFeedbackList() {
   const d = S.data;
   if (!d.source.found || !d.scripts.length) return '';
   const items = [];
-  d.scripts.forEach((s) => fbList(s).forEach((f) => { if (f.status !== 'happy') items.push({ s, f }); }));
+  d.scripts.forEach((s) => fbList(s).forEach((f) => { if (!isApproved(f)) items.push({ s, f }); }));
   d.scripts.forEach((s) => cmList(s).forEach((c) => items.push({ s, f: { status: 'comment', name: c.name, note: c.text, at: c.at } })));
   const order = { scrap: 0, changes: 1, comment: 2 };
   items.sort((a, b) => order[a.f.status] - order[b.f.status]);
@@ -1907,6 +1947,7 @@ function viewTeam() {
   if (S.remind) html += viewReminder();
   html += viewReminderLog();
   html += viewFeedbackList();
+  html += viewScrapped();
   if (d.source.unmatched && d.source.unmatched.length) {
     html += `<div class="notice">These names are in the export but not on the People tab, so nobody sees their scripts: <b>${esc(d.source.unmatched.join(', '))}</b>.</div>`;
   }
@@ -1921,16 +1962,16 @@ function viewTeam() {
     const key = 'person|' + p.email;
     const armed = S.armed === key, busy = S.pending === key;
     const remove = p.isAdmin ? '' : `<button class="btn small danger ${armed ? 'armed' : ''}" data-act="removeperson" data-email="${esc(p.email)}" ${busy ? 'disabled' : ''}>${busy ? 'Removing…' : (armed ? 'Tap to remove' : 'Remove')}</button>`;
-    const tally = { comment: 0, changes: 0, scrap: 0, wait: 0 };
+    const tally = { approved: 0, comment: 0, changes: 0, scrap: 0, wait: 0 };
     let filmedN = 0;
     scripts.forEach((s) => {
       const f = fbFor(s, p.name), c = cmFor(s, p.name);
       if (c) tally.comment++;
-      if (f && f.status !== 'happy') tally[f.status]++;
-      if (!c && !(f && f.status !== 'happy')) tally.wait++;
+      if (f) tally[isApproved(f) ? 'approved' : f.status]++;
+      if (!c && !f) tally.wait++;
       if (isFilmed(s)) filmedN++;
     });
-    const tallyHtml = scripts.length ? `<div class="tally">${['comment', 'changes', 'scrap'].filter((k) => tally[k]).map((k) => `<span class="chip st-${k}">${tally[k]} ${FB_LABEL[k].toLowerCase()}</span>`).join('')}${tally.wait ? `<span class="chip st-wait">${tally.wait} no feedback</span>` : ''}${filmedN ? `<span class="chip done">${filmedN} filmed</span>` : ''}</div>` : '';
+    const tallyHtml = scripts.length ? `<div class="tally">${['approved', 'comment', 'changes'].filter((k) => tally[k]).map((k) => `<span class="chip st-${k}">${tally[k]} ${FB_LABEL[k].toLowerCase()}</span>`).join('')}${tally.wait ? `<span class="chip st-wait">${tally.wait} not answered</span>` : ''}${filmedN ? `<span class="chip done">${filmedN} filmed</span>` : ''}</div>` : '';
     return `<div class="panel person">
       <div class="row"><h3>${esc(p.name)}</h3><span class="label">${scripts.length} script${scripts.length === 1 ? '' : 's'}</span></div>
       <div class="booked">${booked}</div>
@@ -2170,6 +2211,7 @@ document.addEventListener('click', (e) => {
     if (!s) return;
     const mine = fbList(s).find((f) => f.email === S.me.email);
     const mineC = cmList(s).find((c) => c.email === S.me.email);
+    if (st === 'approved') { S.fbEdit = null; sendFeedback(i, isApproved(mine) ? '' : 'approved', ''); return; }
     {
       const prior = st === 'comment' ? (mineC ? mineC.text : '') : (mine && mine.status === st ? mine.note : '');
       const same = S.fbEdit && S.fbEdit.key === s.key && S.fbEdit.status === st;
@@ -2190,6 +2232,7 @@ document.addEventListener('click', (e) => {
   else if (act === 'fbcancel') { S.fbEdit = null; renderMain(); refreshPop(); }
   else if (act === 'fbclear') { const st2 = S.fbEdit && S.fbEdit.status; S.fbEdit = null; if (st2 === 'comment') sendComment(Number(el.dataset.i), ''); else sendFeedback(Number(el.dataset.i), '', ''); }
   else if (act === 'brief') openBrief(el.dataset.email || '');
+  else if (act === 'restorescript') restoreScript(el.dataset.key);
   else if (act === 'briefcopy') { if (S.briefText) copyText(S.briefText, 'Brief'); }
   else if (act === 'briefclose') { const d = document.getElementById('briefpop'); if (d) d.close(); }
   else if (act === 'gobook') {
