@@ -391,6 +391,7 @@
   .fbmain .fbbtn.approved { flex: 1; min-height: 44px; font-size: 15px; }
   .fbmain .filmbox { margin-left: 0; }
   .fbmore { display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 0; margin: -4px -6px 0; }
+  .pop .fbmore { justify-content: flex-start; gap: 6px; }
   .fbbtn.mini { min-height: 36px; border: 0; background: none; padding: 0 6px; gap: 5px; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: var(--muted); border-radius: 8px; }
   .fbbtn.mini svg { width: 15px; height: 15px; }
   @media (max-width: 360px) { .fbbtn.mini svg { display: none; } }
@@ -475,6 +476,21 @@
   .fbbtn.comment[aria-pressed="true"] { background: #DCEBF7; border-color: #8DB4D6; color: #1E4A72; }
   .chip.st-comment { background: #DCEBF7; color: #1E4A72; border-color: transparent; font-weight: 600; }
   .fbitem .chip.st-comment { font-weight: 600; }
+  .addrow { display: flex; justify-content: flex-end; margin: -4px 0 12px; }
+  .addform { display: flex; flex-direction: column; gap: 8px; }
+  .addform .label { margin-top: 6px; }
+  .addform .remindto { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .addtwo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .addtwo { grid-template-columns: 1fr; } }
+  .addtwo > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .addfile { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
+  .filebtn { position: relative; overflow: hidden; cursor: pointer; }
+  .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+  #add-lines { min-height: 200px; }
+  .addform textarea.addcap { min-height: 80px; }
+  .addsel { height: 44px; appearance: auto; }
+  .addhint { margin: -2px 0 0; font-size: 12.5px; }
+  .chip.own { background: #E3EEF8; color: #1E4A72; border-color: transparent; font-weight: 600; }
   .brieftext { white-space: pre-wrap; font: 13.5px/1.55 ui-monospace, Menlo, Consolas, monospace; background: var(--panel-2); border-radius: 10px; padding: 14px; margin: 0; overflow-wrap: anywhere; }
   .briefcounts { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
 
@@ -683,7 +699,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202611111222'; // changes with every release; the page uses it to update itself
+const BUILD = '202611121727'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -698,6 +714,7 @@ const svg = (d, w) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" s
 const ICON = {
   happy: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
   approved: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
+  plus: svg('<path d="M12 5v14M5 12h14"/>', 2.4),
   changes: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>'),
   scrap: svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.6),
   check: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
@@ -1024,7 +1041,7 @@ function exitPresenterView() {
   window.scrollTo(0, 0);
 }
 // Things that would save something. In presenter view they're shown but do nothing.
-const PV_BLOCKED = ['restorescript', 'offopen', 'offsave', 'editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
+const PV_BLOCKED = ['addopen', 'addsave', 'delown', 'restorescript', 'offopen', 'offsave', 'editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
 
 function weekOptions() {
   const set = new Map();
@@ -1105,7 +1122,8 @@ function viewScripts() {
       <p style="margin-top:16px"><button class="btn" data-act="restoreweek" data-week="${esc(d.week)}" ${S.pending === 'week|' + d.week ? 'disabled' : ''}>${S.pending === 'week|' + d.week ? 'Restoring…' : 'Restore this week'}</button></p></div>`;
   }
   if (!src.found) {
-    return `<div class="panel empty"><h2>No scripts for ${esc(d.label)} yet</h2><p>They’ll appear here as soon as the Script Maker exports this week. You can still book filming blocks in the calendar.</p></div>`;
+    return `<div class="panel empty"><h2>No scripts for ${esc(d.label)} yet</h2><p>They’ll appear here as soon as the Script Maker exports this week. You can still book filming blocks in the calendar.</p>
+      ${S.me.isAdmin && !S.realMe ? `<p style="margin-top:16px"><button class="btn" data-act="addopen">${ICON.plus}Add a script yourself</button></p>` : ''}</div>`;
   }
   if (src.problem) html += `<div class="notice">${esc(src.problem)}</div>`;
 
@@ -1122,6 +1140,7 @@ function viewScripts() {
       '</div>';
     if (S.who !== 'all') { list = scriptsFor(S.who); viewer = S.who; }
     else viewer = '';
+    html += `<div class="addrow"><button class="btn ghost small" data-act="addopen">${ICON.plus}Add a script</button></div>`;
   }
 
   if (!list.length) {
@@ -1346,6 +1365,7 @@ function scriptBits(s, viewer) {
   { const b = brandOf(s); chips.push(`<span class="chip brand b-${b}" title="Brand: ${esc(BRAND_NAMES[b][1])}">${esc(BRAND_NAMES[b][0])}</span>`); }
   if (people.length > 1 && !(s.format && /two.?hander|presenters/i.test(s.format))) chips.push(`<span class="chip">${people.length === 2 ? 'Two-hander' : people.length + ' presenters'}</span>`);
   if (s.trend) chips.push(`<span class="chip trend"><b>${esc(s.trend.section || 'Trend')}</b>${esc(s.trend.title)}</span>`);
+  if (s.own && S.me.isAdmin) chips.push('<span class="chip own">Added by you</span>');
   if (s.edit) chips.push(`<span class="chip ed">${ICON.changes}Edited by ${esc(firstName(s.edit.name))}</span>`);
   const filmed = isFilmed(s);
   if (filmed) chips.unshift(`<span class="chip done">${ICON.check.replace('<svg', '<svg width="13" height="13"')}Filmed</span>`);
@@ -1358,7 +1378,12 @@ function scriptBits(s, viewer) {
   const editBtn = `<button class="btn ghost small" data-act="editscript" data-i="${idx}">${ICON.changes}Edit</button>`;
   const fb = S.me.isAdmin ? feedbackSummary(s, people) : feedbackBlock(s, idx);
   const cardFb = S.me.isAdmin ? fb : feedbackBlock(s, idx, { film: filmBtn, edit: `<button class="fbbtn mini" data-act="editscript" data-i="${idx}">${ICON.changes}Edit</button>` });
-  return { idx, people, isMe, who, chips, filmed, fb, cardFb, cardActions: S.me.isAdmin ? editBtn + filmBtn : '', actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
+  return { idx, people, isMe, who, chips, filmed, fb, cardFb, cardActions: S.me.isAdmin ? editBtn + (s.own ? delOwnBtn(s) : '') + filmBtn : '', actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
+}
+
+function delOwnBtn(s) {
+  const armed = S.armed === 'delown|' + s.own.id, busy = S.pending === 'delown|' + s.own.id;
+  return `<button class="btn ghost small ${armed ? 'danger armed' : ''}" data-act="delown" data-id="${esc(s.own.id)}" ${busy ? 'disabled' : ''}>${busy ? 'Deleting…' : armed ? 'Tap again to delete' : 'Delete'}</button>`;
 }
 
 function scriptCard(s, viewer) {
@@ -1558,6 +1583,135 @@ async function openBrief(email) {
       <pre class="brieftext">${esc(b.text)}</pre>
     </div>
     <div class="pop-foot"><button class="btn" data-act="briefcopy">Copy brief</button><button class="btn ghost" data-act="briefclose">Close</button></div>`;
+}
+
+/* ---------- Admin: add a script by hand (typed, pasted or from a file) ---------- */
+const ADD_FORMATS = ['Talking head', 'Two-hander', 'Voiceover', 'Street interview', 'Green screen', 'Then vs now'];
+function openAddScript() {
+  let d = document.getElementById('addpop');
+  if (!d) {
+    d = document.createElement('dialog');
+    d.id = 'addpop'; d.className = 'pop';
+    d.setAttribute('aria-labelledby', 'add-title');
+    d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+    wireModal(d);
+    document.body.appendChild(d);
+  }
+  const people = (S.boot.people || []).filter((p) => !p.isAdmin);
+  const pre = S.who && S.who !== 'all' ? S.who : '';
+  d.innerHTML = `<div class="pop-head"><div class="t"><span class="label">${esc(S.data.label)}</span><h3 id="add-title">Add a script</h3>
+      <p class="muted" style="margin:0;font-size:14px">It goes on the hub for this week, just like the Script Maker’s.</p></div>
+      <button class="pop-close" data-act="addclose" aria-label="Close">&times;</button></div>
+    <div class="pop-body addform">
+      <fieldset class="remindto"><legend class="label">Who’s presenting?</legend>
+        ${people.map((p) => `<label class="tick"><input type="checkbox" data-addp="${esc(p.name)}" ${nameKey(p.name) === nameKey(pre) ? 'checked' : ''}><span>${esc(p.name)}</span></label>`).join('')}
+      </fieldset>
+      <label class="label" for="add-name">Title</label>
+      <input id="add-name" class="remindinput" maxlength="200" placeholder="e.g. Three things buyers check first">
+      <div class="addtwo">
+        <div><label class="label" for="add-format">Format (optional)</label>
+          <input id="add-format" class="remindinput" maxlength="80" list="add-formats" placeholder="Talking head"><datalist id="add-formats">${ADD_FORMATS.map((f) => `<option value="${esc(f)}">`).join('')}</datalist></div>
+        <div><label class="label" for="add-brand">Brand</label>
+          <select id="add-brand" class="remindinput addsel">${Object.keys(BRAND_NAMES).map((k) => `<option value="${k}">${esc(BRAND_NAMES[k][0])} · ${esc(BRAND_NAMES[k][1])}</option>`).join('')}</select></div>
+      </div>
+      <div class="addfile"><label class="label" for="add-lines">Script</label>
+        <label class="btn ghost small filebtn">${ICON.plus}Upload a file<input type="file" id="add-file" accept=".txt,.md,.docx,text/plain"></label></div>
+      <textarea id="add-lines" class="remindinput" placeholder="Type or paste the script. One line per line.&#10;&#10;For a two-hander, start each line with who says it, like:&#10;Andy: So Dad, what did you wish you’d known?&#10;Oliver: Honestly? Everything."></textarea>
+      <p class="muted addhint">Word (.docx) or text files. A line starting “Caption:” goes in the caption box.</p>
+      <label class="label" for="add-caption">Caption (optional)</label>
+      <textarea id="add-caption" class="remindinput addcap" maxlength="3000" placeholder="The social post caption"></textarea>
+    </div>
+    <div class="pop-foot"><button class="btn" data-act="addsave">Add to the hub</button><button class="btn ghost" data-act="addclose">Cancel</button></div>`;
+  openModal(d);
+  setTimeout(() => { const t = d.querySelector('#add-name'); if (t) t.focus(); }, 50);
+}
+
+/** Pulls Title:/Caption: lines out of pasted or uploaded text. */
+function fillAddFrom(text) {
+  const d = document.getElementById('addpop');
+  if (!d) return;
+  const keep = [];
+  let caption = '', inCaption = false;
+  String(text || '').replace(/\r\n?/g, '\n').split('\n').forEach((raw) => {
+    const l = raw.trim();
+    let m;
+    if ((m = /^title\s*[:\-–]\s*(.+)$/i.exec(l)) && !d.querySelector('#add-name').value.trim()) { d.querySelector('#add-name').value = m[1]; return; }
+    if ((m = /^caption\s*[:\-–]\s*(.*)$/i.exec(l))) { inCaption = true; caption += m[1]; return; }
+    if (inCaption) { caption += (caption ? '\n' : '') + raw; return; }
+    keep.push(raw);
+  });
+  d.querySelector('#add-lines').value = keep.join('\n').replace(/^\s+|\s+$/g, '');
+  if (caption.trim()) d.querySelector('#add-caption').value = caption.trim();
+}
+
+let mammothP = null;
+function loadMammoth() {
+  if (window.mammoth) return Promise.resolve(window.mammoth);
+  if (!mammothP) mammothP = new Promise((ok, bad) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+    sc.onload = () => ok(window.mammoth); sc.onerror = () => { mammothP = null; bad(new Error('Couldn’t open Word files just now.')); };
+    document.head.appendChild(sc);
+  });
+  return mammothP;
+}
+async function readAddFile(file) {
+  if (!file) return;
+  try {
+    let text;
+    if (/\.docx$/i.test(file.name)) {
+      const m = await loadMammoth();
+      text = (await m.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+    } else if (/\.(txt|md)$/i.test(file.name) || /^text\//.test(file.type)) {
+      text = await file.text();
+    } else { toast('Upload a Word (.docx) or text file.', true); return; }
+    fillAddFrom(text);
+    const d = document.getElementById('addpop');
+    if (d && !d.querySelector('#add-name').value.trim()) d.querySelector('#add-name').value = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+    toast('Loaded ' + file.name);
+  } catch (e) { toast((e && e.message) || 'Couldn’t read that file.', true); }
+}
+
+async function saveAddScript() {
+  const d = document.getElementById('addpop');
+  if (!d || S.pending === 'add') return;
+  const presenters = [...d.querySelectorAll('[data-addp]:checked')].map((x) => x.dataset.addp);
+  const title = d.querySelector('#add-name').value.trim();
+  if (!presenters.length) return toast('Tick who’s presenting it.', true);
+  if (!title) { d.querySelector('#add-name').focus(); return toast('Give the script a title.', true); }
+  // "Andy: line" → spoken by Andy, when Andy is one of the presenters
+  const who = (n) => presenters.find((p) => nameKey(p) === nameKey(n) || nameKey(firstName(p)) === nameKey(n));
+  const lines = d.querySelector('#add-lines').value.replace(/\r\n?/g, '\n').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+    const m = /^([A-Za-z][A-Za-z'’ .-]{0,40}?)\s*[:\-–]\s+(.+)$/.exec(l);
+    const p = m && who(m[1]);
+    return p ? { speaker: p, say: m[2] } : { speaker: '', say: l };
+  });
+  if (!lines.length) { d.querySelector('#add-lines').focus(); return toast('Add the script’s lines.', true); }
+  const btn = d.querySelector('[data-act=addsave]');
+  S.pending = 'add'; btn.disabled = true; btn.textContent = 'Adding…';
+  let r;
+  try {
+    r = await call('apiAddScript', S.token, S.data.week, { title, presenters, lines,
+      format: d.querySelector('#add-format').value.trim() || (presenters.length > 1 ? 'Two-hander' : ''),
+      brand: d.querySelector('#add-brand').value, caption: d.querySelector('#add-caption').value.trim() });
+  } catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t add that.' }; }
+  S.pending = ''; btn.disabled = false; btn.textContent = 'Add to the hub';
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+  if (r && r.ok) { d.close(); loadWeek(false, true); }
+}
+
+async function deleteOwnScript(id) {
+  if (S.armed !== 'delown|' + id) { S.armed = 'delown|' + id; renderMain(); return; }
+  S.armed = ''; S.pending = 'delown|' + id; renderMain();
+  let r;
+  try { r = await call('apiDeleteOwnScript', S.token, S.data.week, id); }
+  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t delete that.' }; }
+  S.pending = '';
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+  if (r && r.ok) { S.data.scripts = S.data.scripts.filter((x) => !(x.own && x.own.id === id)); loadWeek(false, true); }
+  renderMain();
 }
 
 /* ---------- pop-ups and the phone's Back button ---------- */
@@ -2248,6 +2402,10 @@ document.addEventListener('click', (e) => {
   else if (act === 'restorescript') restoreScript(el.dataset.key);
   else if (act === 'briefcopy') { if (S.briefText) copyText(S.briefText, 'Brief'); }
   else if (act === 'briefclose') { const d = document.getElementById('briefpop'); if (d) d.close(); }
+  else if (act === 'addopen') openAddScript();
+  else if (act === 'addclose') { const d = document.getElementById('addpop'); if (d) d.close(); }
+  else if (act === 'addsave') saveAddScript();
+  else if (act === 'delown') deleteOwnScript(el.dataset.id);
   else if (act === 'gobook') {
     if (S.me.isAdmin && el.dataset.who) { const em = emailOf(el.dataset.who); if (em) { S.bookAs = em; store.set('fth.bookAs', em); } }
     S.tab = 'calendar'; store.set('fth.tab', S.tab); renderBar(); renderMain(); window.scrollTo(0, 0);
@@ -2270,7 +2428,14 @@ document.addEventListener('click', (e) => {
 window.addEventListener('popstate', () => {
   if (S.selfBack) { S.selfBack = false; return; }
   const lvl = (history.state && history.state.pop) || 0;
-  ['prompter', 'scriptpop', 'pvpick', 'briefpop'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
+  ['prompter', 'scriptpop', 'pvpick', 'briefpop', 'addpop'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
+});
+document.addEventListener('paste', (e) => {
+  // Pasting a whole script (with Title:/Caption: lines) into the script box sorts it into the right boxes.
+  if (e.target && e.target.id === 'add-lines' && !e.target.value.trim()) {
+    const t = (e.clipboardData && e.clipboardData.getData('text')) || '';
+    if (/^\s*(title|caption)\s*[:\-–]/im.test(t)) { e.preventDefault(); fillAddFrom(t); }
+  }
 });
 document.addEventListener('input', (e) => {
   const ds = e.target && e.target.dataset;
@@ -2283,6 +2448,7 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'remind-message') { S.remind.message = e.target.value; S.remind.edited = true; }
 });
 document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'add-file') { readAddFile(e.target.files && e.target.files[0]); e.target.value = ''; return; }
   if (e.target && e.target.dataset && e.target.dataset.espk !== undefined && S.edit) {
     const l = S.edit.lines[Number(e.target.dataset.espk)]; if (l) { l.speaker = e.target.value; S.edit.dirty = true; }
     return;
