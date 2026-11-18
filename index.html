@@ -249,6 +249,14 @@
   .block.mine .btn.danger { background: rgba(255,255,255,.55); border-color: rgba(30,28,23,.18); color: var(--ink); }
   .block.mine .btn.danger.armed { background: var(--red); color: #fff; border-color: var(--red); }
   .block.past { opacity: .55; }
+  .block.booked, .block.booked.mine, .block.booked.taken { background: var(--pc-bg); border: 1px solid transparent; border-left: 6px solid var(--pc); box-shadow: none; padding-left: 10px; }
+  .block.booked .who { color: var(--pc-ink); }
+  .block.booked .label { color: color-mix(in srgb, var(--pc-ink) 70%, transparent); }
+  .block.booked .where { background: rgba(255,255,255,.7); color: var(--pc-ink); }
+  .block.booked.mine { box-shadow: 0 0 0 2px var(--pc) inset, 0 0 0 0 transparent; }
+  .youtag { display: inline-block; font: 600 10.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; background: var(--pc); color: #fff; border-radius: 999px; padding: 3px 7px; vertical-align: 2px; margin-left: 4px; }
+  .block.booked .btn.danger { background: rgba(255,255,255,.75); }
+  .legend .l-person::before { background: var(--pc-bg); border: 1px solid var(--pc); border-left-width: 4px; }
   .block .where { align-self: flex-start; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; background: rgba(255,255,255,.6); color: var(--ink-2); }
   .block.mine .where { background: rgba(255,255,255,.55); color: var(--ink); }
   .block.choosing { border: 1px solid var(--gold); background: var(--yellow-wash); }
@@ -648,8 +656,7 @@
   .cday.today { outline: 2px solid var(--ink-deep); }
   .block { border-color: var(--line-2); }
   .block .who { font: 600 15px/1.3 var(--head); }
-  .block.taken { background: #ECEAE3; }
-  .block.mine { background: var(--yellow); box-shadow: none; }
+  .block.taken:not(.booked) { background: #ECEAE3; }
   .legend .l-taken::before { background: #ECEAE3; }
 
   /* team */
@@ -699,7 +706,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202611121727'; // changes with every release; the page uses it to update itself
+const BUILD = '202611181034'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -1845,6 +1852,23 @@ function blockState(date, slot) {
   return { started, ended };
 }
 
+/* Each person has their own colour on the calendar (People-tab order; the admin is FTA yellow). */
+const PERSON_COLOURS = [
+  ['#DCEAF8', '#3B7BC4', '#1E4A72'], ['#DDF0DC', '#3E9A4B', '#245C2D'], ['#F8DDE9', '#C2457E', '#7A2350'],
+  ['#E7E0F7', '#7552C4', '#46307D'], ['#FBE3CF', '#D9772B', '#7E4113'], ['#D5F0EE', '#2A9289', '#17564F'],
+  ['#F6DAD5', '#C0503A', '#7A2B1D'], ['#ECEFD2', '#8A9A2B', '#4E5714'], ['#E2E6EA', '#5B6B7A', '#323C46'],
+];
+function personColour(name) {
+  const team = S.boot.team || S.boot.people || [];
+  const me = team.find((p) => nameKey(p.name) === nameKey(name));
+  if (me && me.isAdmin) return ['#FFE9A3', '#E0A800', '#5C4300'];
+  const others = team.filter((p) => !p.isAdmin);
+  let i = others.findIndex((p) => nameKey(p.name) === nameKey(name));
+  if (i < 0) { i = 0; for (const ch of nameKey(name)) i = (i * 31 + ch.charCodeAt(0)) >>> 0; }
+  return PERSON_COLOURS[i % PERSON_COLOURS.length];
+}
+const colourVars = (name) => { const c = personColour(name); return `--pc-bg:${c[0]};--pc:${c[1]};--pc-ink:${c[2]}`; };
+
 function viewCalendar() {
   const d = S.data;
   const admin = S.me.isAdmin;
@@ -1875,15 +1899,16 @@ function viewCalendar() {
       const key = day.date + '|' + slot.key;
       const busy = S.pending === key;
       const isOff = dayOff || off[slot.key] !== undefined;
-      let cls = 'block', who = '', act = '';
+      let cls = 'block', who = '', act = '', style = '';
       if (isOff && !b) {
         cls += ' off';
         const why = dayOff ? off.ALL : off[slot.key];
         who = `<span class="offtxt">Unavailable</span>${why ? `<span class="reason">${esc(why)}</span>` : ''}`;
         if (admin && !dayOff && !st.ended) act = `<button class="linkbtn blk" data-act="offopen" data-on="0" data-date="${day.date}" data-slot="${slot.key}" ${S.pending === 'off|' + key ? 'disabled' : ''}>${S.pending === 'off|' + key ? 'Saving…' : 'Unblock'}</button>`;
       } else if (b) {
-        cls += b.mine ? ' mine' : ' taken';
-        who = `<span class="who">${b.mine ? 'You' : esc(b.name)}</span>` +
+        cls += ' booked' + (b.mine ? ' mine' : ' taken');
+        style = colourVars(b.name);
+        who = `<span class="who">${b.mine ? `${esc(b.name)} <span class="youtag">You</span>` : esc(b.name)}</span>` +
           (b.location ? `<span class="where ${b.location === 'In' ? 'in' : 'out'}">${b.location === 'In' ? 'In · studio' : 'Out · on location'}</span>` : '');
         if ((b.mine && !st.started) || admin) {
           const armed = S.armed === key;
@@ -1912,7 +1937,7 @@ function viewCalendar() {
         }
       }
       if (st.ended) cls += ' past';
-      return `<div class="${cls}">
+      return `<div class="${cls}" ${style ? `style="${style}"` : ''}>
         <span class="label">${esc(slot.start)}–${esc(slot.end)}</span>
         <span class="slotname">${esc(slot.label)}</span>
         ${who}
@@ -1945,7 +1970,8 @@ function viewCalendar() {
     : '';
   return `${notice}<div class="calhead">
       <div><div class="label">${esc(summary)}</div></div>
-      <div class="legend"><span class="l-free">Free</span><span class="l-mine">${admin ? 'Booked by you' : 'Yours'}</span><span class="l-taken">Taken</span><span class="l-off">Unavailable</span></div>
+      <div class="legend">${(S.boot.team || S.boot.people || []).filter((p) => !p.isAdmin || d.bookings.some((b) => nameKey(b.name) === nameKey(p.name)))
+        .map((p) => `<span class="l-person" style="${colourVars(p.name)}">${esc(firstName(p.name))}</span>`).join('')}<span class="l-free">Free</span><span class="l-off">Unavailable</span></div>
       ${tools}
     </div>
     <div class="cal">${cols}</div>`;
