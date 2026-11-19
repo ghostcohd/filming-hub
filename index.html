@@ -141,6 +141,13 @@
   .dayhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 2px 12px; }
   .dayhead h2 { margin: 0; font: 600 21px/1.2 var(--head); }
   .dayhead .label { color: var(--muted); }
+  .batch { margin-bottom: 22px; }
+  .batch:last-child { margin-bottom: 0; }
+  .batchhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 2px 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--ink-2); }
+  .batchhead svg { width: 16px; height: 16px; color: var(--muted); }
+  .batchhead .when { font-weight: 700; color: var(--ink); }
+  .batchhead .newest { font: 700 10.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; background: var(--yellow); color: #1E1C17; border-radius: 999px; padding: 4px 8px; }
+  .batchhead .count { margin-left: auto; color: var(--muted); font-size: 13px; }
   .dayhead-chips { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
   .script { padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -720,7 +727,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202611191200'; // changes with every release; the page uses it to update itself
+const BUILD = '202611191621'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -736,6 +743,7 @@ const ICON = {
   happy: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
   approved: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
   plus: svg('<path d="M12 5v14M5 12h14"/>', 2.4),
+  clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 2),
   upload: svg('<path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>', 2.2),
   changes: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>'),
   scrap: svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.6),
@@ -1237,12 +1245,21 @@ function viewScripts() {
   if (viewer) html += filmBanner(viewer);
   // Two sections: what's still to film, and what's been filmed.
   S.viewer = viewer;
-  const toFilm = list.filter((s) => !isFilmed(s)), done = list.filter(isFilmed);
+  const byNewest = (a, b) => (b.importedAt || 0) - (a.importedAt || 0);
+  const toFilm = list.filter((s) => !isFilmed(s)).sort(byNewest), done = list.filter(isFilmed).sort(byNewest);
   const n = (k) => `${k} script${k === 1 ? '' : 's'}`;
+  // Group by when the scripts came in (each Script Maker export, or a script Zach added), newest first.
+  const batches = [];
+  toFilm.forEach((s) => {
+    const t = s.importedAt || 0, last = batches[batches.length - 1];
+    if (last && last.t === t) last.items.push(s); else batches.push({ t, items: [s] });
+  });
   html += `<section class="day">
       <div class="dayhead"><h2>${esc(S.me.isAdmin && S.who === 'all' ? 'Still to film' : 'Scripts to film')}</h2><span class="label">${n(toFilm.length)}</span></div>
       ${toFilm.length
-        ? `<div class="cards">${toFilm.map((s) => scriptCard(s, viewer)).join('')}</div>`
+        ? batches.map((b, i) => `<div class="batch">
+            <div class="batchhead">${ICON.clock}<span class="when">${b.t ? 'Added ' + esc(importLabel(b.t)) : 'Added earlier'}</span>${i === 0 && batches.length > 1 ? '<span class="newest">Newest</span>' : ''}<span class="count">${n(b.items.length)}</span></div>
+            <div class="cards">${b.items.map((s) => scriptCard(s, viewer)).join('')}</div></div>`).join('')
         : `<div class="panel alldone">${ICON.check}<div><b>All filmed</b><span>Everything for ${esc(d.label)} has been ticked off.</span></div></div>`}
     </section>`;
   if (done.length) {
@@ -1252,6 +1269,16 @@ function viewScripts() {
     </section>`;
   }
   return html;
+}
+
+/** 1795105240567 → "Thu 19 Nov, 15:58" (UK time) */
+function importLabel(ms) {
+  try {
+    const dt = new Date(ms);
+    const day = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' }).replace(',', '');
+    const time = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+    return `${day}, ${time}`;
+  } catch (e) { return ''; }
 }
 
 function isFilmed(s) { return !!(S.data.filmed && S.data.filmed[s.key]); }
