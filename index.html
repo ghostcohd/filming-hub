@@ -538,6 +538,20 @@
 
   /* ---------- account menu ---------- */
   .acct { position: relative; }
+  #who { display: flex; align-items: center; gap: 10px; }
+  .upbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--yellow); color: var(--ink-deep, #1E1C17); font: 700 14.5px/1 var(--body); cursor: pointer; white-space: nowrap; }
+  .upbtn svg { width: 18px; height: 18px; }
+  .upbtn:hover { filter: brightness(1.05); }
+  .upbtn[data-none] { background: rgba(255,255,255,.12); color: #fff; }
+  @media (max-width: 640px) {
+    #who { gap: 6px; }
+    .upbtn { width: 44px; padding: 0; justify-content: center; flex: none; }
+    .upbtn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .upbtn svg { width: 20px; height: 20px; }
+    .acctbtn .chev { display: none; }
+    .acctbtn { padding-right: 3px; }
+  }
+  .personact .btn.needs { border-style: dashed; color: var(--muted); }
   .acctbtn { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 3px 10px 3px 3px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #fff; cursor: pointer; max-width: 340px; }
   .acctbtn:hover, .acctbtn[aria-expanded="true"] { background: rgba(255,255,255,.12); }
   .acctbtn .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--yellow); color: var(--ink-deep); display: grid; place-items: center; font: 800 14px/1 var(--head); flex: none; }
@@ -706,7 +720,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202611181034'; // changes with every release; the page uses it to update itself
+const BUILD = '202611191200'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -722,6 +736,7 @@ const ICON = {
   happy: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
   approved: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
   plus: svg('<path d="M12 5v14M5 12h14"/>', 2.4),
+  upload: svg('<path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>', 2.2),
   changes: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>'),
   scrap: svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.6),
   check: svg('<path d="M20 6L9 17l-5-5"/>', 2.6),
@@ -984,7 +999,9 @@ function renderWho() {
     if (S.realMe) items.push(`<button role="menuitem" data-act="pvexit">${ICON.close}Exit presenter view</button>`);
   }
   if (showSignOut) items.push(`<button role="menuitem" data-act="signout">${ICON.signout}Sign out</button>`);
-  $('#who').innerHTML = `<div class="acct">
+  const up = uploadLink();
+  const upBtn = S.token ? `<button class="upbtn" data-act="upload" title="Upload your videos to Google Drive" aria-label="Upload videos" ${up ? '' : 'data-none="1"'}>${ICON.upload}<span>Upload videos</span></button>` : '';
+  $('#who').innerHTML = `${upBtn}<div class="acct">
     <button class="acctbtn" data-act="acct" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">
       <span class="avatar">${esc(initials)}</span><span class="name">${esc(me.name)}</span>${admin ? '<span class="tag">Admin</span>' : ''}
       <svg class="chev" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
@@ -995,6 +1012,67 @@ function renderWho() {
     </div>
   </div>`;
   renderPvBar();
+}
+
+/** The Drive folder this person drops their videos into (set by Zach on the Team tab). */
+function uploadLink() {
+  if (S.realMe) { const p = (S.boot.people || []).find((x) => x.email === S.me.email); return (p && p.folder) || ''; }
+  return S.boot.uploadUrl || '';
+}
+function openUpload(el) {
+  const url = uploadLink();
+  if (!url) {
+    return toast(S.me.isAdmin && !S.realMe ? 'Add your own folder on the Team tab first.' : 'Your video folder isn’t set up yet. Ask Zach to add it.', true);
+  }
+  window.open(url, '_blank', 'noopener');
+}
+
+/* Admin: set each person's video folder */
+function openFolderEdit(email) {
+  const p = (S.boot.people || []).find((x) => x.email === email);
+  if (!p) return;
+  let d = document.getElementById('folderpop');
+  if (!d) {
+    d = document.createElement('dialog');
+    d.id = 'folderpop'; d.className = 'pop';
+    d.setAttribute('aria-labelledby', 'folder-title');
+    d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+    wireModal(d);
+    document.body.appendChild(d);
+  }
+  d.dataset.email = email;
+  d.innerHTML = `<div class="pop-head"><div class="t"><span class="label">Upload videos button</span><h3 id="folder-title">${esc(firstName(p.name))}’s video folder</h3></div>
+      <button class="pop-close" data-act="folderclose" aria-label="Close">&times;</button></div>
+    <div class="pop-body addform">
+      <label class="label" for="folder-url">Google Drive folder link</label>
+      <input id="folder-url" class="remindinput" inputmode="url" placeholder="https://drive.google.com/drive/folders/…" value="${esc(p.folder || '')}">
+      <p class="muted addhint">Open the folder in Google Drive and copy the address from the top of the browser. Share the folder with ${esc(firstName(p.name))} as an <b>Editor</b> so they can drop videos into it.</p>
+      ${p.folder ? `<p style="margin:4px 0 0"><a href="${esc(p.folder)}" target="_blank" rel="noopener">Open ${esc(firstName(p.name))}’s folder</a></p>` : ''}
+    </div>
+    <div class="pop-foot"><button class="btn" data-act="foldersave">Save</button>${p.folder ? '<button class="btn ghost" data-act="folderclear">Remove</button>' : ''}<button class="btn ghost" data-act="folderclose">Cancel</button></div>`;
+  openModal(d);
+  setTimeout(() => { const t = d.querySelector('#folder-url'); if (t) t.focus(); }, 50);
+}
+async function saveFolder(clear) {
+  const d = document.getElementById('folderpop');
+  if (!d || S.pending === 'folder') return;
+  const url = clear ? '' : d.querySelector('#folder-url').value.trim();
+  if (!clear && !url) return toast('Paste the folder link first.', true);
+  S.pending = 'folder';
+  d.querySelectorAll('.pop-foot .btn').forEach((b) => { b.disabled = true; });
+  let r;
+  try { r = await call('apiSetFolder', S.token, d.dataset.email, url); }
+  catch (e) { r = { ok: false, message: (e && e.message) || 'Couldn’t save that.' }; }
+  S.pending = '';
+  d.querySelectorAll('.pop-foot .btn').forEach((b) => { b.disabled = false; });
+  if (r && (r.code === 'SIGNIN' || r.code === 'DENIED')) return gate(r);
+  toast((r && r.message) || 'Something went wrong', !(r && r.ok));
+  if (r && r.ok) {
+    S.boot.people = r.people || S.boot.people;
+    const meP = S.boot.people.find((x) => x.email === (S.realMe || S.me).email);
+    if (meP && !S.realMe) S.boot.uploadUrl = meP.folder || '';
+    d.close(); renderWho(); renderMain();
+  }
 }
 
 /* ---------- admin: presenter view (look-only) ---------- */
@@ -1048,7 +1126,7 @@ function exitPresenterView() {
   window.scrollTo(0, 0);
 }
 // Things that would save something. In presenter view they're shown but do nothing.
-const PV_BLOCKED = ['addopen', 'addsave', 'delown', 'restorescript', 'offopen', 'offsave', 'editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
+const PV_BLOCKED = ['folderedit', 'foldersave', 'folderclear', 'addopen', 'addsave', 'delown', 'restorescript', 'offopen', 'offsave', 'editscript', 'esave', 'eorig', 'book', 'bookwhere', 'cancel', 'fb', 'fbsend', 'fbclear', 'filmed', 'remindopen', 'remindsend', 'removeweek', 'restoreweek', 'removeperson', 'restoreperson', 'refresh'];
 
 function weekOptions() {
   const set = new Map();
@@ -2172,6 +2250,7 @@ function viewTeam() {
       <div class="personact">
         ${scripts.length ? `<button class="btn ghost small" data-act="seescripts" data-who="${esc(p.name)}">View scripts</button>` : ''}
         ${p.isAdmin ? '' : `<button class="btn ghost small" data-act="brief" data-email="${esc(p.email)}">Script brief</button>`}
+        <button class="btn ghost small ${p.folder ? '' : 'needs'}" data-act="folderedit" data-email="${esc(p.email)}">${ICON.upload}${p.folder ? 'Video folder' : 'Add video folder'}</button>
         ${remove}
       </div>
     </div>`;
@@ -2429,6 +2508,11 @@ document.addEventListener('click', (e) => {
   else if (act === 'briefcopy') { if (S.briefText) copyText(S.briefText, 'Brief'); }
   else if (act === 'briefclose') { const d = document.getElementById('briefpop'); if (d) d.close(); }
   else if (act === 'addopen') openAddScript();
+  else if (act === 'upload') openUpload(el);
+  else if (act === 'folderedit') openFolderEdit(el.dataset.email);
+  else if (act === 'foldersave') saveFolder(false);
+  else if (act === 'folderclear') saveFolder(true);
+  else if (act === 'folderclose') { const d = document.getElementById('folderpop'); if (d) d.close(); }
   else if (act === 'addclose') { const d = document.getElementById('addpop'); if (d) d.close(); }
   else if (act === 'addsave') saveAddScript();
   else if (act === 'delown') deleteOwnScript(el.dataset.id);
@@ -2454,7 +2538,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('popstate', () => {
   if (S.selfBack) { S.selfBack = false; return; }
   const lvl = (history.state && history.state.pop) || 0;
-  ['prompter', 'scriptpop', 'pvpick', 'briefpop', 'addpop'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
+  ['prompter', 'scriptpop', 'pvpick', 'briefpop', 'addpop', 'folderpop'].forEach((id) => { const d = document.getElementById(id); if (d && d.open && (d._lvl || 0) > lvl) d.close(); });
 });
 document.addEventListener('paste', (e) => {
   // Pasting a whole script (with Title:/Caption: lines) into the script box sorts it into the right boxes.
