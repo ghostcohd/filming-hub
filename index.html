@@ -727,7 +727,7 @@
 
 <script>
 const BOOT = { token: '' };
-const BUILD = '202611191621'; // changes with every release; the page uses it to update itself
+const BUILD = '202611241122'; // changes with every release; the page uses it to update itself
 const API_URL = "https://script.google.com/macros/s/AKfycbyVWWqRKViVZIC_M_Hq7P2ZTob75g6wHZMkwfnhgmxawE8kZBPWrysqhBjeHHfIFHCv4g/exec";
 
 /* ---------- small helpers ---------- */
@@ -1216,7 +1216,7 @@ function viewScripts() {
   }
   if (!src.found) {
     return `<div class="panel empty"><h2>No scripts for ${esc(d.label)} yet</h2><p>They’ll appear here as soon as the Script Maker exports this week. You can still book filming blocks in the calendar.</p>
-      ${S.me.isAdmin && !S.realMe ? `<p style="margin-top:16px"><button class="btn" data-act="addopen">${ICON.plus}Add a script yourself</button></p>` : ''}</div>`;
+      ${!S.realMe ? `<p style="margin-top:16px"><button class="btn" data-act="addopen">${ICON.plus}Add a script yourself</button></p>` : ''}</div>`;
   }
   if (src.problem) html += `<div class="notice">${esc(src.problem)}</div>`;
 
@@ -1234,6 +1234,8 @@ function viewScripts() {
     if (S.who !== 'all') { list = scriptsFor(S.who); viewer = S.who; }
     else viewer = '';
     html += `<div class="addrow"><button class="btn ghost small" data-act="addopen">${ICON.plus}Add a script</button></div>`;
+  } else if (!S.realMe) {
+    html += `<div class="addrow"><button class="btn ghost small" data-act="addopen">${ICON.plus}Add your own script</button></div>`;
   }
 
   if (!list.length) {
@@ -1477,7 +1479,12 @@ function scriptBits(s, viewer) {
   { const b = brandOf(s); chips.push(`<span class="chip brand b-${b}" title="Brand: ${esc(BRAND_NAMES[b][1])}">${esc(BRAND_NAMES[b][0])}</span>`); }
   if (people.length > 1 && !(s.format && /two.?hander|presenters/i.test(s.format))) chips.push(`<span class="chip">${people.length === 2 ? 'Two-hander' : people.length + ' presenters'}</span>`);
   if (s.trend) chips.push(`<span class="chip trend"><b>${esc(s.trend.section || 'Trend')}</b>${esc(s.trend.title)}</span>`);
-  if (s.own && S.me.isAdmin) chips.push('<span class="chip own">Added by you</span>');
+  if (s.own) {
+    const mine = s.own.by && s.own.by === (S.realMe || S.me).email;
+    const byP = (S.boot.people || []).find((p) => p.email === s.own.by);
+    if (mine) chips.push('<span class="chip own">Added by you</span>');
+    else if (S.me.isAdmin && byP) chips.push(`<span class="chip own">Added by ${esc(firstName(byP.name))}</span>`);
+  }
   if (s.edit) chips.push(`<span class="chip ed">${ICON.changes}Edited by ${esc(firstName(s.edit.name))}</span>`);
   const filmed = isFilmed(s);
   if (filmed) chips.unshift(`<span class="chip done">${ICON.check.replace('<svg', '<svg width="13" height="13"')}Filmed</span>`);
@@ -1490,7 +1497,7 @@ function scriptBits(s, viewer) {
   const editBtn = `<button class="btn ghost small" data-act="editscript" data-i="${idx}">${ICON.changes}Edit</button>`;
   const fb = S.me.isAdmin ? feedbackSummary(s, people) : feedbackBlock(s, idx);
   const cardFb = S.me.isAdmin ? fb : feedbackBlock(s, idx, { film: filmBtn, edit: `<button class="fbbtn mini" data-act="editscript" data-i="${idx}">${ICON.changes}Edit</button>` });
-  return { idx, people, isMe, who, chips, filmed, fb, cardFb, cardActions: S.me.isAdmin ? editBtn + (s.own ? delOwnBtn(s) : '') + filmBtn : '', actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
+  return { idx, people, isMe, who, chips, filmed, fb, cardFb, cardActions: S.me.isAdmin ? editBtn + (s.own ? delOwnBtn(s) : '') + filmBtn : (s.own && s.own.by === S.me.email ? delOwnBtn(s) : ''), actions: tpBtn + copyBtn + editBtn + docBtn + filmBtn };
 }
 
 function delOwnBtn(s) {
@@ -1709,14 +1716,15 @@ function openAddScript() {
     wireModal(d);
     document.body.appendChild(d);
   }
-  const people = (S.boot.people || []).filter((p) => !p.isAdmin);
-  const pre = S.who && S.who !== 'all' ? S.who : '';
+  const people = (S.boot.people || S.boot.team || []).filter((p) => !p.isAdmin);
+  const admin = S.me.isAdmin;
+  const pre = admin ? (S.who && S.who !== 'all' ? S.who : '') : S.me.name;
   d.innerHTML = `<div class="pop-head"><div class="t"><span class="label">${esc(S.data.label)}</span><h3 id="add-title">Add a script</h3>
-      <p class="muted" style="margin:0;font-size:14px">It goes on the hub for this week, just like the Script Maker’s.</p></div>
+      <p class="muted" style="margin:0;font-size:14px">${S.me.isAdmin ? 'It goes on the hub for this week, just like the Script Maker’s.' : 'Got your own idea? Add it here and it goes on the hub with your other scripts for this week.'}</p></div>
       <button class="pop-close" data-act="addclose" aria-label="Close">&times;</button></div>
     <div class="pop-body addform">
-      <fieldset class="remindto"><legend class="label">Who’s presenting?</legend>
-        ${people.map((p) => `<label class="tick"><input type="checkbox" data-addp="${esc(p.name)}" ${nameKey(p.name) === nameKey(pre) ? 'checked' : ''}><span>${esc(p.name)}</span></label>`).join('')}
+      <fieldset class="remindto"><legend class="label">${admin ? 'Who’s presenting?' : 'Who’s in it? You’re ticked already. Add someone else for a two-hander.'}</legend>
+        ${people.map((p) => { const me = !admin && nameKey(p.name) === nameKey(S.me.name); return `<label class="tick"><input type="checkbox" data-addp="${esc(p.name)}" ${nameKey(p.name) === nameKey(pre) ? 'checked' : ''} ${me ? 'disabled' : ''}><span>${esc(p.name)}${me ? ' (you)' : ''}</span></label>`; }).join('')}
       </fieldset>
       <label class="label" for="add-name">Title</label>
       <input id="add-name" class="remindinput" maxlength="200" placeholder="e.g. Three things buyers check first">
@@ -1788,6 +1796,7 @@ async function saveAddScript() {
   const d = document.getElementById('addpop');
   if (!d || S.pending === 'add') return;
   const presenters = [...d.querySelectorAll('[data-addp]:checked')].map((x) => x.dataset.addp);
+  if (!S.me.isAdmin && !presenters.some((n) => nameKey(n) === nameKey(S.me.name))) presenters.unshift(S.me.name);
   const title = d.querySelector('#add-name').value.trim();
   if (!presenters.length) return toast('Tick who’s presenting it.', true);
   if (!title) { d.querySelector('#add-name').focus(); return toast('Give the script a title.', true); }
